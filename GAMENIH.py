@@ -1,26 +1,21 @@
 import pygame
 import sys
 import random
-import numpy as np
 
+# --- HEAL ITEM ------
+class HealItem:
+    def __init__(self, x, y):
+        self.position = pygame.Vector2(x, y)
+        self.size = (25, 25)
 
+    def get_rect(self):
+        return pygame.Rect(self.position.x, self.position.y, self.size[0], self.size[1])
 
-# MEMBUAT MUSIC BACKGROUND
-def create_background_track():
-    sample_rate = 44100
-    notes = [261.63, 329.63, 392.00, 440.00]
-    full_wave = np.array([], dtype=np.int16)
+    def draw(self, surface):
+        # warna hijau (heal)
+        pygame.draw.rect(surface, (0, 255, 0), (*self.position, *self.size))
+
     
-    for freq in notes:
-        duration = 0.5  
-        n_samples = int(sample_rate * duration)
-        t = np.linspace(0, duration, n_samples, False)
-        wave = (np.sin(2 * np.pi * freq * t) * 10000).astype(np.int16)
-        full_wave = np.concatenate((full_wave, wave))
-    
-    wave_stereo = np.column_stack((full_wave, full_wave))
-    return pygame.sndarray.make_sound(wave_stereo)
-
 # --- 1. Struktur Tree (Node) ---
 class GameNode:
     def __init__(self, x, y, color, width, height, health=100, show_health=True, image=None):
@@ -90,7 +85,7 @@ pygame.init()
 pygame.mixer.init()
 
 pygame.mixer.music.load("musik.ogg")
-pygame.mixer.music.set_volume(0.5)   # volume 0.0 - 1.0
+pygame.mixer.music.set_volume(0.8)   # volume 0.0 - 1.0
 pygame.mixer.music.play(-1)   
 
 
@@ -116,6 +111,7 @@ player.add_child(pedang)
 
 
 enemies = []
+heal_items = []
 def spawn_enemy():
     side = random.choice(['top', 'bottom', 'left', 'right'])
     if side == 'top':    pos = (random.randint(0, WIDTH), -50)
@@ -123,11 +119,16 @@ def spawn_enemy():
     elif side == 'left':   pos = (-50, random.randint(0, HEIGHT))
     else:                pos = (WIDTH + 50, random.randint(0, HEIGHT))
     
-    health = random.choice([50, 75])
-    enemies.append(GameNode(pos[0], pos[1], (255, 165, 0), 40, 40, health=health)) 
+    health = random.choice([50, 75])  #membuat agar health musuh bervariasi atau ada 2 pilihan
+    enemies.append(GameNode(pos[0], pos[1], (255, 165, 0), 40, 40, health=health))  
 
 for _ in range(3):
     spawn_enemy()
+
+def spawn_heal():   #membuat item heal muncul secara random di area game
+    x = random.randint(50, WIDTH - 50)
+    y = random.randint(50, HEIGHT - 50)
+    heal_items.append(HealItem(x, y))
 
 running = True
 is_game_over = False
@@ -135,7 +136,7 @@ score = 0
 
 
 
-while running:
+while running: 
     screen.fill((30, 30, 30))
     mouse_pos = pygame.mouse.get_pos()
     
@@ -241,6 +242,12 @@ while running:
             player_rect = player.get_rect(pygame.Vector2(0,0))
             sword_rect = pedang.get_rect(player.position)
 
+            # === HEAL ITEM PICKUP ===
+            for item in heal_items[:]:
+                if player_rect.colliderect(item.get_rect()):
+                    player.health = min(player.max_health, player.health + 20)
+                    heal_items.remove(item)
+
             # Logika Musuh
             for enemy in enemies[:]:
                 #----STUN SYSTEM----
@@ -274,6 +281,8 @@ while running:
                         enemies.remove(enemy)
                         spawn_enemy()
                         score += 10   # tambah skor tiap kill
+                        if random.random() < 0.3:
+                            spawn_heal()
                 elif player_rect.colliderect(enemy_rect):
 
                     if player.hit_timer <= 0:
@@ -292,8 +301,11 @@ while running:
             player.draw(screen, pygame.Vector2(0, 0))
             for enemy in enemies:
                 enemy.draw(screen, pygame.Vector2(0, 0))
-                score_text = font_text.render(f"POINT: {score}", True, (255, 255, 255))
-                screen.blit(score_text, (10, 10))
+            for item in heal_items:
+                item.draw(screen)
+
+            score_text = font_text.render(f"POINT: {score}", True, (255, 255, 255))
+            screen.blit(score_text, (10, 10))
         
         else:
             pygame.mixer.music.stop()
