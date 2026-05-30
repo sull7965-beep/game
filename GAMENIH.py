@@ -4,17 +4,16 @@ import random
 
 # --- HEAL ITEM ------
 class HealItem:
-    def __init__(self, x, y):
+    def __init__(self, x, y, image):
         self.position = pygame.Vector2(x, y)
         self.size = (25, 25)
+        self.image = image
 
     def get_rect(self):
         return pygame.Rect(self.position.x, self.position.y, self.size[0], self.size[1])
 
     def draw(self, surface):
-        # warna hijau (heal)
-        pygame.draw.rect(surface, (0, 255, 0), (*self.position, *self.size))
-
+        surface.blit(self.image, self.position)
     
 # --- 1. Struktur Tree (Node) ---
 class GameNode:
@@ -102,6 +101,8 @@ font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
 game_state = "MENU"
 
 # --- 3. Pengaturan Objek ---
+heal_image = pygame.image.load("heal.png").convert_alpha()
+heal_image = pygame.transform.scale(heal_image, (25, 25))
 player_down = pygame.image.load("player.png").convert_alpha()
 player_up = pygame.image.load("hero_up.png").convert_alpha()
 player_left = pygame.image.load("playerleft.png").convert_alpha()
@@ -116,8 +117,8 @@ pedang = GameNode(50, 20, None, 70, 40, show_health=False, image = pedang_image)
 player.add_child(pedang)
 
 
-enemies = []
-heal_items = []
+enemies = [] 
+heal_items = []   
 def spawn_enemy():
     side = random.choice(['top', 'bottom', 'left', 'right'])
     if side == 'top':    pos = (random.randint(0, WIDTH), -50)
@@ -125,8 +126,10 @@ def spawn_enemy():
     elif side == 'left':   pos = (-50, random.randint(0, HEIGHT))
     else:                pos = (WIDTH + 50, random.randint(0, HEIGHT))
     
+    enemy_img = pygame.image.load("enemy.png").convert_alpha()
+    enemy_img = pygame.transform.scale(enemy_img, (50, 50))
     health = random.choice([50, 75])  #membuat agar health musuh bervariasi atau ada 2 pilihan
-    enemies.append(GameNode(pos[0], pos[1], (255, 165, 0), 40, 40, health=health))  
+    enemies.append(GameNode(pos[0], pos[1], None, 50, 50, health=health, image=enemy_img)) 
 
 for _ in range(3):
     spawn_enemy()
@@ -141,7 +144,7 @@ def spawn_heal():   #memunculkan heal item
     x = random.randint(50, WIDTH - 50)
     y = random.randint(50, HEIGHT - 50)
 
-    heal_items.append(HealItem(x, y))
+    heal_items.append(HealItem(x, y, heal_image))
 
 running = True
 is_game_over = False
@@ -268,6 +271,7 @@ while running:
                 else:
                     # Gerakan normal hanya kalau tidak stun
                     direction = player.position - enemy.position
+
                     if direction.length() > 0:
                         enemy.position += direction.normalize() * 2
 
