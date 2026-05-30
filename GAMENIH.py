@@ -84,7 +84,7 @@ class GameNode:
 pygame.init()
 pygame.mixer.init()
 
-pygame.mixer.music.load("musik.ogg")
+pygame.mixer.music.load("sound.ogg")
 pygame.mixer.music.set_volume(0.8)   # volume 0.0 - 1.0
 pygame.mixer.music.play(-1)   
 
@@ -102,11 +102,17 @@ font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
 game_state = "MENU"
 
 # --- 3. Pengaturan Objek ---
-player = GameNode(400, 300, (0, 255, 0), 50, 50, health=50)
+player_down = pygame.image.load("player.png").convert_alpha()
+player_up = pygame.image.load("hero_up.png").convert_alpha()
+player_left = pygame.image.load("playerleft.png").convert_alpha()
+player_right = pygame.image.load("playerright.png").convert_alpha()
+player = pygame.transform.scale(player_down, (60, 60))
+player = GameNode(400, 300, None, 60, 60, health=50, image=player_down)
 # Default awal pedang berada di sebelah kanan
-pedang_image = pygame.image.load("pedang.png").convert_alpha()
-pedang_image = pygame.transform.scale(pedang_image, (80, 30))
-pedang = GameNode(50, 20, None, 80, 30, show_health=False, image = pedang_image)
+pedang_image = pygame.image.load("pedang2.png").convert_alpha()
+pedang_image.set_colorkey((0, 0, 0))
+pedang_image = pygame.transform.scale(pedang_image, (70, 40))
+pedang = GameNode(50, 20, None, 70, 40, show_health=False, image = pedang_image)
 player.add_child(pedang)
 
 
@@ -218,32 +224,31 @@ while running:
             # --- BARU: LOGIKA GERAKAN DAN UBAH ARAH PEDANG ---
             if keys[pygame.K_LEFT]:
                 player.position.x -= move_speed
+                player.image = player_left
                 pedang.position = pygame.Vector2(-60, 15)
                 pedang.angle = 180
             elif keys[pygame.K_RIGHT]:
                 player.position.x += move_speed
+                player.image = player_right
                 pedang.position = pygame.Vector2(50, 15)
                 pedang.angle = 0
             elif keys[pygame.K_UP]:
                 player.position.y -= move_speed
+                player.image = player_up
                 pedang.position = pygame.Vector2(15, -60)
                 pedang.angle = 90
             elif keys[pygame.K_DOWN]:
                 player.position.y += move_speed
+                player.image = player_down
                 pedang.position = pygame.Vector2(15, 50)
                 pedang.angle = -90
             
 
-            # --- BARU: PEMBATASAN LAYAR DINAMIS (Mengikuti Ujung Pedang) ---
-            # Cari posisi minimal dan maksimal ujung pedang yang valid
-            min_x = max(0, -pedang.position.x)
-            max_x = WIDTH - player.size[0] - max(0, pedang.position.x + pedang.size[0] - player.size[0])
-            min_y = max(0, -pedang.position.y)
-            max_y = HEIGHT - player.size[1] - max(0, pedang.position.y + pedang.size[1] - player.size[1])
 
             # Mengunci posisi player berdasarkan batasan dinamis di atas
-            player.position.x = max(min_x, min(player.position.x, max_x))
-            player.position.y = max(min_y, min(player.position.y, max_y))
+            # === BATAS PLAYER SAJA ===
+            player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
+            player.position.y = max(0, min(player.position.y, HEIGHT - player.size[1]))
 
             # Ambil Rect untuk tabrakan
             player_rect = player.get_rect(pygame.Vector2(0,0))
