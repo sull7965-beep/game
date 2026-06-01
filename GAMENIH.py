@@ -1,6 +1,19 @@
 import pygame
 import sys
 import random
+import math
+
+# PLAYER DAN MUSUH TIDAK NGAMBANG LAGI
+def draw_shadow(surface, pos, size):
+    shadow = pygame.Surface((int(size[0]*0.8), int(size[1]*0.25)), pygame.SRCALPHA)
+    pygame.draw.ellipse(shadow, (0, 0, 0, 80), shadow.get_rect())
+    
+    shadow_pos = (
+        pos.x + size[0]*0.1,
+        pos.y + size[1] - (size[1] * 0.2)
+    )
+    
+    surface.blit(shadow, shadow_pos)
 
 # --- HEAL ITEM ------
 class HealItem:
@@ -14,6 +27,8 @@ class HealItem:
 
     def draw(self, surface):
         surface.blit(self.image, self.position)
+        alpha = 128 + int(127 * math.sin(pygame.time.get_ticks() * 0.005))
+        self.image.set_alpha(alpha)
     
 # --- 1. Struktur Tree (Node) ---
 class GameNode:
@@ -32,6 +47,8 @@ class GameNode:
 
     def draw_health_bar(self, surface, parent_pos):
         abs_pos = parent_pos + self.position
+        # 🔥 TAMBAHKAN INI
+        draw_shadow(surface, abs_pos, self.size)
         
         bar_width = self.size[0]
         bar_height = 5
@@ -84,9 +101,11 @@ pygame.init()
 pygame.mixer.init()
 
 pygame.mixer.music.load("sound.ogg")
-pygame.mixer.music.set_volume(0.8)   # volume 0.0 - 1.0
-pygame.mixer.music.play(-1)   
-
+pygame.mixer.music.set_volume(0.2)   # volume 0.0 - 1.0
+   
+levelup_sound = pygame.mixer.Sound("levelup.ogg")
+start_sound = pygame.mixer.Sound("gamestart.ogg")
+gameover_sound = pygame.mixer.Sound("gameover.ogg")
 
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -101,6 +120,8 @@ font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
 game_state = "MENU"
 
 # --- 3. Pengaturan Objek ---
+background = pygame.image.load("latar.png").convert()
+background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 heal_image = pygame.image.load("heal.png").convert_alpha()
 heal_image = pygame.transform.scale(heal_image, (25, 25))
 player_down = pygame.image.load("player.png").convert_alpha()
@@ -109,6 +130,10 @@ player_left = pygame.image.load("playerleft.png").convert_alpha()
 player_right = pygame.image.load("playerright.png").convert_alpha()
 player = pygame.transform.scale(player_down, (60, 60))
 player = GameNode(400, 300, None, 60, 60, health=50, image=player_down)
+enemy_img = pygame.image.load("enemy.png").convert_alpha()
+enemy_img = pygame.transform.scale(enemy_img, (50, 50))
+
+
 # Default awal pedang berada di sebelah kanan
 pedang_image = pygame.image.load("pedang2.png").convert_alpha()
 pedang_image.set_colorkey((0, 0, 0))
@@ -116,44 +141,74 @@ pedang_image = pygame.transform.scale(pedang_image, (70, 40))
 pedang = GameNode(50, 20, None, 70, 40, show_health=False, image = pedang_image)
 player.add_child(pedang)
 
-
+MAX_ENEMIES = 10
 enemies = [] 
 heal_items = []   
 def spawn_enemy():
-    side = random.choice(['top', 'bottom', 'left', 'right'])
-    if side == 'top':    pos = (random.randint(0, WIDTH), -50)
-    elif side == 'bottom': pos = (random.randint(0, WIDTH), HEIGHT + 50)
-    elif side == 'left':   pos = (-50, random.randint(0, HEIGHT))
-    else:                pos = (WIDTH + 50, random.randint(0, HEIGHT))
-    
+
+    side = random.choice(['left', 'right'])
+
+    y = HEIGHT // 2
+
+    if side == 'left':
+        x = -50
+    else:
+        x = WIDTH + 50
+
     enemy_img = pygame.image.load("enemy.png").convert_alpha()
     enemy_img = pygame.transform.scale(enemy_img, (50, 50))
-    health = random.choice([50, 75])  #membuat agar health musuh bervariasi atau ada 2 pilihan
-    enemies.append(GameNode(pos[0], pos[1], None, 50, 50, health=health, image=enemy_img)) 
+    health = random.choice([50, 75])
+
+    enemies.append(GameNode(x, y, None, 50, 50, health=health, image=enemy_img))
 
 for _ in range(3):
-    spawn_enemy()
+    if len(enemies) < MAX_ENEMIES:
+     spawn_enemy()
 
 MAX_HEAL_ITEMS = 3 #heal item munculmax 3
 
 def spawn_heal():   #memunculkan heal item
-
     if len(heal_items) >= MAX_HEAL_ITEMS:
-        return
+       return
 
-    x = random.randint(50, WIDTH - 50)
-    y = random.randint(50, HEIGHT - 50)
+    side = random.choice(['left', 'right'])
 
+    y = HEIGHT // 1.2
+
+    if side == 'left':
+        x = -30
+    else:
+        x = WIDTH + 30
+  
     heal_items.append(HealItem(x, y, heal_image))
 
 running = True
 is_game_over = False
 score = 0
-
-
+display_score = 0  # TAMBAHAN
+level = 1
+prev_level = 1
+level_up_timer = 0
+is_level_up = False
+level_up_delay = 0
+level_up_text_scale = 1.0
+level_up_alpha = 255
+enemy_spawn_timer = 0
+enemy_spawn_delay = 120  + level * 10 # makin besar = makin lama
+gameover_played = False
+# --- START ANIMATION ---
+start_animation = False
+start_timer = 300 # 5 detik
+start_alpha = 0  # 🔥 RESET
 
 while running: 
-    screen.fill((30, 30, 30))
+    screen.blit(background, (0, 0))
+
+        # 🔥 OVERLAY GELAP
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(80)
+    overlay.fill((0, 0, 0))
+    screen.blit(overlay, (0, 0))
     mouse_pos = pygame.mouse.get_pos()
     
     events = pygame.event.get()
@@ -183,7 +238,9 @@ while running:
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if btn_start_rect.collidepoint(mouse_pos):
-                    game_state = "GAMEPLAY"
+                    start_sound.play()   # 🔊 bunyi start
+                    start_animation = True
+                    start_timer = 300   # durasi animasi
                 elif btn_tuto_rect.collidepoint(mouse_pos):
                     game_state = "TUTORIAL"
 
@@ -213,128 +270,260 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if btn_back_rect.collidepoint(mouse_pos):
                     game_state = "MENU"
+    if game_state == "MENU":
+      if start_animation:   # 🔥 START ANIMATION
+            screen.fill((0, 0, 0))
 
-    # ==================== STATUS 3: HALAMAN GAMEPLAY ====================
-    elif game_state == "GAMEPLAY":
-        if not is_game_over:
+            start_timer -= 1
 
-            if player.hit_timer > 0:
-                player.hit_timer -= 1
+       # --- PROGRESS (0 ke 1) ---
+            progress = 1 - (start_timer / 480)
 
-            keys = pygame.key.get_pressed()
-            move_speed = 5
-            
-            # --- BARU: LOGIKA GERAKAN DAN UBAH ARAH PEDANG ---
-            if keys[pygame.K_LEFT]:
-                player.position.x -= move_speed
-                player.image = player_left
-                pedang.position = pygame.Vector2(-60, 15)
-                pedang.angle = 180
-            elif keys[pygame.K_RIGHT]:
-                player.position.x += move_speed
-                player.image = player_right
-                pedang.position = pygame.Vector2(50, 15)
-                pedang.angle = 0
-            elif keys[pygame.K_UP]:
-                player.position.y -= move_speed
-                player.image = player_up
-                pedang.position = pygame.Vector2(15, -60)
-                pedang.angle = 90
-            elif keys[pygame.K_DOWN]:
-                player.position.y += move_speed
-                player.image = player_down
-                pedang.position = pygame.Vector2(15, 50)
-                pedang.angle = -90
-            
+            # --- FADE IN & OUT ---
+            if progress < 0.5:
+               start_alpha = int(progress * 2 * 255)  # fade in
+            else:
+                start_alpha = int((1 - progress) * 2 * 255)  # fade out
 
+             # --- ZOOM EFFECT ---
+            scale = 1 + (0.5 * progress)  # dari 1x ke 1.5x
 
-            # Mengunci posisi player berdasarkan batasan dinamis di atas
-            # === BATAS PLAYER SAJA ===
-            player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
-            player.position.y = max(0, min(player.position.y, HEIGHT - player.size[1]))
+            # --- GLOW EFFECT (kedip halus) ---
+            glow = 200 + int(55 * abs(pygame.math.Vector2(1,0).rotate(progress * 360).x))
 
-            # Ambil Rect untuk tabrakan
-            player_rect = player.get_rect(pygame.Vector2(0,0))
-            sword_rect = pedang.get_rect(player.position)
+            # --- TEXT ---
+            text = font_title.render("ARE YOU READY", True, (glow, glow, 255))
+            text.set_alpha(start_alpha)
 
-            # === HEAL ITEM PICKUP ===
-            for item in heal_items[:]:
-                if player_rect.colliderect(item.get_rect()):
-                    player.health = min(player.max_health, player.health + 20)
-                    heal_items.remove(item)
+            # scale text
+            new_size = (
+                int(text.get_width() * scale),
+                int(text.get_height() * scale)
+            )
+            text = pygame.transform.scale(text, new_size)
 
-            # Logika Musuh
-            for enemy in enemies[:]:
-                #----STUN SYSTEM----
-                if enemy.stun_timer > 0:
-                    enemy.stun_timer -= 1
-                else:
-                    # Gerakan normal hanya kalau tidak stun
-                    direction = player.position - enemy.position
+             # center
+            screen.blit(
+                 text,
+                (WIDTH//2 - text.get_width()//2,
+                HEIGHT//2 - text.get_height()//2)
+            )
 
-                    if direction.length() > 0:
-                        enemy.position += direction.normalize() * 2
+              # --- TRANSISI ---
+            if start_timer <= 0:
+                start_animation = False
+                game_state = "GAMEPLAY"
+                pygame.mixer.music.play(-1)
 
-                enemy.position.x = max(0, min(enemy.position.x, WIDTH - enemy.size[0]))
-                enemy.position.y = max(0, min(enemy.position.y, HEIGHT - enemy.size[1]))
-                
-                enemy_rect = enemy.get_rect(pygame.Vector2(0,0))
-
-                if sword_rect.colliderect(enemy_rect):
-                    # Kurangi darah
-                    enemy.health -= 25   # biar 2–3 hit baru mati
-
-                   # === KNOCKBACK ===
-                    knockback_dir = (enemy.position - player.position)
-                    if knockback_dir.length() > 0:
-                        knockback_dir = knockback_dir.normalize()
-                        enemy.position += knockback_dir * 70
-                    
-                    #----STUN----
-                    enemy.stun_timer = 30 # 1 detik stunn
-
-                    if enemy.health <= 0:
-                        enemies.remove(enemy)
-                        spawn_enemy()
-                        score += 10   # tambah skor tiap kill
-                        if random.random() < 0.3:
-                            spawn_heal()
-                elif player_rect.colliderect(enemy_rect):
-
-                    if player.hit_timer <= 0:
-                        player.hit_timer = 30
-                        player.health -= 5 
-
-                      # === KNOCKBACK PLAYER ===
-                        knockback_dir = (player.position - enemy.position)
-                        if knockback_dir.length() > 0:
-                            knockback_dir = knockback_dir.normalize()
-                            player.position += knockback_dir * 40   # makin besar = makin jauh terpental
-
-                        if player.health <= 0:
-                           is_game_over = True
-            # Render Objek
-            player.draw(screen, pygame.Vector2(0, 0))
-            for enemy in enemies:
-                enemy.draw(screen, pygame.Vector2(0, 0))
-            for item in heal_items:
-                item.draw(screen)
-
-            score_text = font_text.render(f"POINT: {score}", True, (255, 255, 255))
-            screen.blit(score_text, (10, 10))
+      # 🔥 MENU NORMAL
+      else:
+         title_text = font_title.render("SQUARE SURVIVOR", True, (255, 255, 255))
+         screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 100))
         
-        else:
-            pygame.mixer.music.stop()
-            msg = font_gameover.render("MAMPUSS", True, (255, 0, 0))
-            screen.blit(msg, (WIDTH//2 - 180, HEIGHT//2 - 40))
-            final_score = font_menu.render(f"POINT: {score}", True, (255, 255, 255))
-            screen.blit(final_score, (WIDTH//2 - 80, HEIGHT//2 + 40))
-            pygame.display.flip()
-            pygame.time.delay(3000)
-            running = False
+         btn_start_rect = pygame.Rect(WIDTH // 2 - 150, 250, 300, 50)
+         start_color = (0, 200, 0) if btn_start_rect.collidepoint(mouse_pos) else (0, 150, 0)
+         pygame.draw.rect(screen, start_color, btn_start_rect, border_radius=10)
+        
+         start_text = font_menu.render("START GAME", True, (255, 255, 255))
+         screen.blit(start_text, (btn_start_rect.centerx - start_text.get_width() // 2, btn_start_rect.centery - start_text.get_height() // 2))
 
+         for event in events:
+             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                 if btn_start_rect.collidepoint(mouse_pos):
+                     start_sound.play()
+                     pygame.mixer.music.stop()  # 🔥 STOP BACKSOUND
+                     start_animation = True
+                     start_timer = 120
+                     start_alpha = 0
+
+#===========GAMEPLAY================
+    elif game_state == "GAMEPLAY":
+
+     if not is_game_over:
+
+        # --- LEVEL SYSTEM ---
+        prev_level = level
+        level = score // 120 + 1
+
+        if level > prev_level:
+            is_level_up = True
+            level_up_timer = 120 
+            level_up_delay = 240
+            level_up_text_scale = 3.0   # mulai besar
+            level_up_alpha = 255        # full terang
+            enemies.clear()
+            levelup_sound.play()
+
+        # --- LEVEL PAUSE ---
+        if is_level_up:
+            level_up_delay -= 1
+                # --- ANIMASI TEXT ---
+            level_up_timer -= 1
+
+            if level_up_text_scale > 1.0:
+               level_up_text_scale -= 0.012  # mengecil perlahan
+
+               level_up_alpha -= 1.5  # fade out
+
+            if level_up_timer <= 0:
+               level_up_alpha = 0
+
+            if level_up_delay <= 0:
+                is_level_up = False
+                for _ in range(3 + level):
+                    if len(enemies) < MAX_ENEMIES:
+                        spawn_enemy()
+        #---- MOVE ------
+        # --- CONTROL ---
+        keys = pygame.key.get_pressed()
+        move_speed = 5
+
+       # ===== PEDANG FIX HORIZONTAL =====
+        if keys[pygame.K_RIGHT]:
+            player.position.x += move_speed
+            pedang.position = pygame.Vector2(50, 15)
+            pedang.angle = 0   # lurus ke kanan
+
+        if keys[pygame.K_LEFT]:
+            player.position.x -= move_speed
+            pedang.position = pygame.Vector2(-60, 15)
+            pedang.angle = 180  # lurus ke kiri
+
+
+         # --- BATAS MAP ---
+        player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
+
+        # 🔥 KUNCI Y (WAJIB DI BAWAH)
+        player.position.y = HEIGHT // 1.3
+
+        player_rect = player.get_rect(pygame.Vector2(0, 0))
+        sword_rect = pedang.get_rect(player.position)
+
+        # --- HIT TIMER ---
+        if player.hit_timer > 0:
+            player.hit_timer -= 1
+        
+        # --- SPAWN TIMER ---
+        enemy_spawn_timer -= 1
+
+        if enemy_spawn_timer <= 0:
+            if len(enemies) < MAX_ENEMIES:
+              spawn_enemy()
+ 
+            enemy_spawn_timer = enemy_spawn_delay
+  
+        # --- HEAL ---
+        for item in heal_items[:]:
+            if player_rect.colliderect(item.get_rect()):
+               player.health = min(player.max_health, player.health + 20)
+               heal_items.remove(item)
+
+        # --- ENEMY ---
+        for enemy in enemies[:]:
+            if enemy.stun_timer > 0:
+                enemy.stun_timer -= 1
+            else:
+                 # 🔥 KUNCI DI SINI (horizontal saja)
+              enemy.position.y = HEIGHT // 1.3
+
+              if enemy.position.x < player.position.x:
+                 enemy.position.x += 2
+              elif enemy.position.x > player.position.x:
+                 enemy.position.x -= 2
+            enemy_rect = enemy.get_rect(pygame.Vector2(0, 0))
+
+            # kena pedang
+            if sword_rect.colliderect(enemy_rect):
+                enemy.health -= 25
+
+                knock = (enemy.position - player.position)
+                if knock.length() > 0:
+                    enemy.position += knock.normalize() * 50
+
+                enemy.stun_timer = 30
+
+            # mati
+            if enemy.health <= 0:
+                enemies.remove(enemy)
+                score += 10
+
+                 # 🔥 TAMBAHKAN INI
+                if random.random() < 0.1:  # 10% chance
+                 spawn_heal()
+
+            # kena player
+            elif player_rect.colliderect(enemy_rect):
+                if player.hit_timer <= 0:
+                    player.health -= 10
+                    player.hit_timer = 30
+
+                    if player.health <= 0 and not gameover_played:
+                     is_game_over = True
+                     gameover_sound.play()
+                     gameover_played = True
+
+        # --- SCORE ANIMATION ---
+        if display_score < score:
+            display_score += 1
+
+        # --- RENDER ---
+        player.draw(screen, pygame.Vector2(0, 0))
+
+        for enemy in enemies:
+            enemy.draw(screen, pygame.Vector2(0, 0))
+
+        for item in heal_items:
+      # 🔥 gerak ke arah player (horizontal saja)
+           if item.position.x < player.position.x:
+              item.position.x += 1
+           elif item.position.x > player.position.x:
+               item.position.x -= 1
+
+           item.draw(screen)
+
+        # UI
+        hp_ratio = player.health / player.max_health
+        pygame.draw.rect(screen, (255, 0, 0), (10, 40, 200, 20))
+        pygame.draw.rect(screen, (0, 255, 0), (10, 40, 200 * hp_ratio, 20))
+
+        screen.blit(font_text.render(f"HP: {player.health}", True, (255,255,255)), (10, 65))
+        screen.blit(font_text.render(f"POINT: {display_score}", True, (255,255,255)), (10, 90))
+        screen.blit(font_text.render(f"LEVEL: {level}", True, (255,255,0)), (10, 120))
+        # --- DRAW LEVEL UP TEXT ---
+        if is_level_up and level_up_alpha > 0:
+           text = font_title.render("LEVEL UP!", True, (255, 255, 0))
+    
+          # scale
+           scaled_size = (
+               int(text.get_width() * level_up_text_scale),
+               int(text.get_height() * level_up_text_scale)
+           )
+           text = pygame.transform.scale(text, scaled_size)
+
+          # transparency
+           text.set_alpha(level_up_alpha)
+
+           screen.blit(
+               text,
+               (WIDTH//2 - text.get_width()//2,
+               HEIGHT//2 - text.get_height()//2)
+           )
+     else:
+        # --- GAME OVER ---
+        pygame.mixer.music.stop()
+        msg = font_gameover.render("GAME OVER!", True, (255, 0, 0))
+        screen.blit(msg, (WIDTH//2 - 180, HEIGHT//2 - 40))
+
+        final_score = font_menu.render(f"POINT: {score}", True, (255, 255, 255))
+        screen.blit(final_score, (WIDTH//2 - 80, HEIGHT//2 + 40))
+
+        pygame.display.flip()
+        pygame.time.delay(5000)
+        running = False
+        
     pygame.display.flip()
     clock.tick(60)
+
 
 pygame.quit()
 sys.exit()
