@@ -1,7 +1,7 @@
 import pygame
 import sys
 import random
-
+import math
 
 # PLAYER DAN MUSUH TIDAK NGAMBANG LAGI
 def draw_shadow(surface, pos, size):
