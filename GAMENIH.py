@@ -148,7 +148,7 @@ def spawn_enemy():
 
     side = random.choice(['left', 'right'])
 
-    y = HEIGHT // 2
+    y = HEIGHT // 1.2
 
     if side == 'left':
         x = -50
