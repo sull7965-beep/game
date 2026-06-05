@@ -116,6 +116,7 @@ font_title = pygame.font.SysFont("Arial", 60, bold=True)
 font_menu = pygame.font.SysFont("Arial", 36, bold=True)
 font_text = pygame.font.SysFont("Arial", 24)
 font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
+font_name = pygame.font.SysFont("Arial", 17, bold=True)
 
 game_state = "MENU"
 
@@ -468,9 +469,22 @@ while running:
 
         # --- RENDER ---
         player.draw(screen, pygame.Vector2(0, 0))
+                # --- NAMA PLAYER ---
+        player_name = font_name.render("SULE", True, (255, 255, 255))
+        screen.blit(player_name, (
+            player.position.x + player.size[0]//2 - player_name.get_width()//2,
+            player.position.y - 30
+        ))
 
         for enemy in enemies:
             enemy.draw(screen, pygame.Vector2(0, 0))
+                         # --- NAMA MUSUH ---
+            enemy_name = font_name.render("HUGO", True, (255, 100, 100))
+            screen.blit(enemy_name, (
+                enemy.position.x + enemy.size[0]//2 - enemy_name.get_width()//2,
+                enemy.position.y - 30
+            ))
+
 
         for item in heal_items:
       # 🔥 gerak ke arah player (horizontal saja)
