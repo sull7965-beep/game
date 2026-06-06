@@ -118,6 +118,7 @@ font_text = pygame.font.SysFont("Arial", 24)
 font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
 font_name = pygame.font.SysFont("Arial", 17, bold=True)
 
+
 game_state = "MENU"
 
 # --- 3. Pengaturan Objek ---
@@ -469,7 +470,7 @@ while running:
 
         # --- RENDER ---
         player.draw(screen, pygame.Vector2(0, 0))
-                # --- NAMA PLAYER ---
+        # --- NAMA PLAYER ---
         player_name = font_name.render("SULE", True, (255, 255, 255))
         screen.blit(player_name, (
             player.position.x + player.size[0]//2 - player_name.get_width()//2,
@@ -478,13 +479,13 @@ while running:
 
         for enemy in enemies:
             enemy.draw(screen, pygame.Vector2(0, 0))
-                         # --- NAMA MUSUH ---
+
+             # --- NAMA MUSUH ---
             enemy_name = font_name.render("HUGO", True, (255, 100, 100))
             screen.blit(enemy_name, (
                 enemy.position.x + enemy.size[0]//2 - enemy_name.get_width()//2,
                 enemy.position.y - 30
             ))
-
 
         for item in heal_items:
       # 🔥 gerak ke arah player (horizontal saja)
@@ -523,18 +524,71 @@ while running:
                HEIGHT//2 - text.get_height()//2)
            )
      else:
-        # --- GAME OVER ---
-        pygame.mixer.music.stop()
-        msg = font_gameover.render("GAME OVER!", True, (255, 0, 0))
-        screen.blit(msg, (WIDTH//2 - 180, HEIGHT//2 - 40))
+              # --- GAME OVER SCREEN ---
+         pygame.mixer.music.stop()
 
-        final_score = font_menu.render(f"POINT: {score}", True, (255, 255, 255))
-        screen.blit(final_score, (WIDTH//2 - 80, HEIGHT//2 + 40))
+         msg = font_gameover.render("GAME OVER!", True, (255, 0, 0))
+         screen.blit(msg, (WIDTH//2 - 180, HEIGHT//2 - 100))
 
-        pygame.display.flip()
-        pygame.time.delay(5000)
-        running = False
-        
+         final_score = font_menu.render(f"POINT: {score}", True, (255, 255, 255))
+         screen.blit(final_score, (WIDTH//2 - 80, HEIGHT//2 - 20))
+
+         # --- BUTTON RESTART ---
+         btn_restart = pygame.Rect(WIDTH//2 - 150, HEIGHT//2 + 50, 300, 50)
+         color_restart = (0, 200, 0) if btn_restart.collidepoint(mouse_pos) else (0, 150, 0)
+         pygame.draw.rect(screen, color_restart, btn_restart, border_radius=10)
+
+         text_restart = font_menu.render("RESTART", True, (255,255,255))
+         screen.blit(text_restart, (
+             btn_restart.centerx - text_restart.get_width()//2,
+             btn_restart.centery - text_restart.get_height()//2
+         ))
+
+         # --- BUTTON MENU ---
+         btn_menu = pygame.Rect(WIDTH//2 - 150, HEIGHT//2 + 120, 300, 50)
+         color_menu = (200, 50, 50) if btn_menu.collidepoint(mouse_pos) else (150, 30, 30)
+         pygame.draw.rect(screen, color_menu, btn_menu, border_radius=10)
+
+         text_menu = font_menu.render("MENU", True, (255,255,255))
+         screen.blit(text_menu, (
+             btn_menu.centerx - text_menu.get_width()//2,
+             btn_menu.centery - text_menu.get_height()//2
+         ))
+
+         # --- CLICK EVENT ---
+         for event in events:
+              if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            
+                  if btn_restart.collidepoint(mouse_pos):
+                     is_game_over = False
+                     player.health = player.max_health
+                     player.position = pygame.Vector2(400, 300)
+
+                     enemies.clear()
+                     heal_items.clear()
+
+                     score = 0
+                     display_score = 0
+                     level = 1
+                     gameover_played = False
+
+                     for _ in range(3):
+                        spawn_enemy()
+
+                     pygame.mixer.music.play(-1)
+
+                  elif btn_menu.collidepoint(mouse_pos):
+                     is_game_over = False
+                     game_state = "MENU"
+
+                     enemies.clear()
+                     heal_items.clear()
+
+                     score = 0
+                     display_score = 0
+                     level = 1
+                     gameover_played = False
+         
     pygame.display.flip()
     clock.tick(60)
 
