@@ -5,7 +5,11 @@ import math
 
 # PLAYER DAN MUSUH TIDAK NGAMBANG LAGI
 def draw_shadow(surface, pos, size):
-    shadow = pygame.Surface((int(size[0]*0.8), int(size[1]*0.25)), pygame.SRCALPHA)
+    height_factor = max(0.5, 1 - abs(ground_y_offset) / 100)
+    shadow = pygame.Surface(
+    (int(size[0]*0.8 * height_factor), int(size[1]*0.25 * height_factor)),
+    pygame.SRCALPHA
+    )
     pygame.draw.ellipse(shadow, (0, 0, 0, 80), shadow.get_rect())
     
     shadow_pos = (
@@ -102,13 +106,17 @@ pygame.mixer.init()
 
 pygame.mixer.music.load("sound.ogg")
 pygame.mixer.music.set_volume(0.2)   # volume 0.0 - 1.0
-   
+
+
 levelup_sound = pygame.mixer.Sound("levelup.ogg")
-start_sound = pygame.mixer.Sound("gamestart.ogg")
 gameover_sound = pygame.mixer.Sound("gameover.ogg")
 
-WIDTH, HEIGHT = 800, 600
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.init()
+
+info = pygame.display.Info()
+WIDTH, HEIGHT = info.current_w, info.current_h
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.SCALED)
 pygame.display.set_caption("SQUARE SURVIVOR")
 clock = pygame.time.Clock()
 
@@ -198,10 +206,16 @@ level_up_alpha = 255
 enemy_spawn_timer = 0
 enemy_spawn_delay = 120  + level * 10 # makin besar = makin lama
 gameover_played = False
-# --- START ANIMATION ---
-start_animation = False
-start_timer = 300 # 5 detik
-start_alpha = 0  # 🔥 RESET
+
+
+# --- JUMP SYSTEM ---
+is_jumping = False
+jump_velocity = 0
+gravity = 0.7
+jump_power = -18
+ground_y_offset = 0  # untuk efek naik turun
+
+
 
 while running: 
     screen.blit(background, (0, 0))
@@ -217,6 +231,11 @@ while running:
     for event in events:
         if event.type == pygame.QUIT:
             running = False
+
+            # 🔥 TAMBAHKAN DI SINI
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+               running = False
 
     # ==================== STATUS 1: HALAMAN MENU UTAMA ====================
     if game_state == "MENU":
@@ -240,9 +259,9 @@ while running:
         for event in events:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if btn_start_rect.collidepoint(mouse_pos):
-                    start_sound.play()   # 🔊 bunyi start
-                    start_animation = True
-                    start_timer = 300   # durasi animasi
+                   
+                   game_state = "GAMEPLAY"
+                   pygame.mixer.music.play(-1)
                 elif btn_tuto_rect.collidepoint(mouse_pos):
                     game_state = "TUTORIAL"
 
@@ -272,71 +291,6 @@ while running:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if btn_back_rect.collidepoint(mouse_pos):
                     game_state = "MENU"
-    if game_state == "MENU":
-      if start_animation:   # 🔥 START ANIMATION
-            screen.fill((0, 0, 0))
-
-            start_timer -= 1
-
-       # --- PROGRESS (0 ke 1) ---
-            progress = 1 - (start_timer / 480)
-
-            # --- FADE IN & OUT ---
-            if progress < 0.5:
-               start_alpha = int(progress * 2 * 255)  # fade in
-            else:
-                start_alpha = int((1 - progress) * 2 * 255)  # fade out
-
-             # --- ZOOM EFFECT ---
-            scale = 1 + (0.5 * progress)  # dari 1x ke 1.5x
-
-            # --- GLOW EFFECT (kedip halus) ---
-            glow = 200 + int(55 * abs(pygame.math.Vector2(1,0).rotate(progress * 360).x))
-
-            # --- TEXT ---
-            text = font_title.render("ARE YOU READY", True, (glow, glow, 255))
-            text.set_alpha(start_alpha)
-
-            # scale text
-            new_size = (
-                int(text.get_width() * scale),
-                int(text.get_height() * scale)
-            )
-            text = pygame.transform.scale(text, new_size)
-
-             # center
-            screen.blit(
-                 text,
-                (WIDTH//2 - text.get_width()//2,
-                HEIGHT//2 - text.get_height()//2)
-            )
-
-              # --- TRANSISI ---
-            if start_timer <= 0:
-                start_animation = False
-                game_state = "GAMEPLAY"
-                pygame.mixer.music.play(-1)
-
-      # 🔥 MENU NORMAL
-      else:
-         title_text = font_title.render("SQUARE SURVIVOR", True, (255, 255, 255))
-         screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, 100))
-        
-         btn_start_rect = pygame.Rect(WIDTH // 2 - 150, 250, 300, 50)
-         start_color = (0, 200, 0) if btn_start_rect.collidepoint(mouse_pos) else (0, 150, 0)
-         pygame.draw.rect(screen, start_color, btn_start_rect, border_radius=10)
-        
-         start_text = font_menu.render("START GAME", True, (255, 255, 255))
-         screen.blit(start_text, (btn_start_rect.centerx - start_text.get_width() // 2, btn_start_rect.centery - start_text.get_height() // 2))
-
-         for event in events:
-             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                 if btn_start_rect.collidepoint(mouse_pos):
-                     start_sound.play()
-                     pygame.mixer.music.stop()  # 🔥 STOP BACKSOUND
-                     start_animation = True
-                     start_timer = 120
-                     start_alpha = 0
 
 #===========GAMEPLAY================
     elif game_state == "GAMEPLAY":
@@ -380,6 +334,11 @@ while running:
         keys = pygame.key.get_pressed()
         move_speed = 5
 
+        # --- JUMP CONTROL ---
+        if keys[pygame.K_SPACE] and not is_jumping:
+           is_jumping = True
+           jump_velocity = jump_power
+
        # ===== PEDANG FIX HORIZONTAL =====
         if keys[pygame.K_RIGHT]:
             player.position.x += move_speed
@@ -391,12 +350,22 @@ while running:
             pedang.position = pygame.Vector2(-60, 15)
             pedang.angle = 180  # lurus ke kiri
 
+        
+        # --- JUMP PHYSICS ---
+        if is_jumping:
+           ground_y_offset += jump_velocity
+           jump_velocity += gravity
+
+           if ground_y_offset >= 0:
+              ground_y_offset = 0
+              is_jumping = False
+
 
          # --- BATAS MAP ---
         player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
 
         # 🔥 KUNCI Y (WAJIB DI BAWAH)
-        player.position.y = HEIGHT // 1.3
+        player.position.y = HEIGHT // 1.2 + ground_y_offset
 
         player_rect = player.get_rect(pygame.Vector2(0, 0))
         sword_rect = pedang.get_rect(player.position)
@@ -426,7 +395,7 @@ while running:
                 enemy.stun_timer -= 1
             else:
                  # 🔥 KUNCI DI SINI (horizontal saja)
-              enemy.position.y = HEIGHT // 1.3
+              enemy.position.y = HEIGHT // 1.2
 
               if enemy.position.x < player.position.x:
                  enemy.position.x += 2
@@ -572,7 +541,7 @@ while running:
                      level = 1
                      gameover_played = False
 
-                     for _ in range(3):
+                     for _ in range(5):
                         spawn_enemy()
 
                      pygame.mixer.music.play(-1)
