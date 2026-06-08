@@ -19,6 +19,25 @@ def draw_shadow(surface, pos, size):
     
     surface.blit(shadow, shadow_pos)
 
+#------ PELURUH MUSUH-------
+class EnemyBullet:
+    def __init__(self, x, y, direction, image):
+        self.position = pygame.Vector2(x, y)
+        self.direction = direction.normalize()
+        self.speed = 7
+        self.image = image
+        self.size = (20, 20)
+
+    def move(self):
+        self.position += self.direction * self.speed
+
+    def get_rect(self):
+        return pygame.Rect(self.position.x, self.position.y, self.size[0], self.size[1])
+
+    def draw(self, surface):
+        surface.blit(self.image, self.position)
+
+
 # --- HEAL ITEM ------
 class HealItem:
     def __init__(self, x, y, image):
@@ -153,9 +172,11 @@ player_up = pygame.image.load("hero_up.png").convert_alpha()
 player_left = pygame.image.load("playerleft.png").convert_alpha()
 player_right = pygame.image.load("playerright.png").convert_alpha()
 player = pygame.transform.scale(player_down, (60, 60))
-player = GameNode(400, 300, None, 60, 60, health=50, image=player_down)
+player = GameNode(400, 300, None, 60, 60, health=75, image=player_down)
 enemy_img = pygame.image.load("enemy.png").convert_alpha()
 enemy_img = pygame.transform.scale(enemy_img, (50, 50))
+bullet_img = pygame.image.load("bolamusuh.png").convert_alpha()
+bullet_img = pygame.transform.scale(bullet_img, (20, 20))
 
 
 
@@ -182,12 +203,13 @@ laser_frames = [
 ]
 
 # resize semua
-laser_frames = [pygame.transform.scale(img, (500, 40)) for img in laser_frames]
+laser_frames = [pygame.transform.scale(img, (400, 40)) for img in laser_frames]
 
 laser_frame_index = 0
 laser_anim_speed = 0.5
 
 MAX_ENEMIES = 10
+enemy_bullets = []
 enemies = [] 
 heal_items = []   
 def spawn_enemy():
@@ -471,7 +493,6 @@ while running:
            if laser_duration <= 0:
               laser_active = False
 
-
         # --- ENEMY ---
         for enemy in enemies[:]:
             if enemy.stun_timer > 0:
@@ -485,6 +506,15 @@ while running:
               elif enemy.position.x > player.position.x:
                  enemy.position.x -= 2
             enemy_rect = enemy.get_rect(pygame.Vector2(0, 0))
+
+            # tembak jika dekat player
+            distance = enemy.position.distance_to(player.position)
+
+            if distance < 400 and random.random() < 0.02:
+               direction = player.position - enemy.position
+               bullet = EnemyBullet(enemy.position.x, enemy.position.y, direction, bullet_img)
+           
+               enemy_bullets.append(bullet)
 
             # kena pedang
             if sword_rect.colliderect(enemy_rect):
@@ -516,6 +546,25 @@ while running:
                      gameover_sound.play()
                      gameover_played = True
 
+
+        for bullet in enemy_bullets[:]:
+            bullet.move()
+
+            # kena player
+            if bullet.get_rect().colliderect(player.get_rect(pygame.Vector2(0,0))):
+               player.health -= 5
+               enemy_bullets.remove(bullet)
+
+                # ✅ TAMBAHAN WAJIB
+               if player.health <= 0 and not gameover_played:
+                  is_game_over = True
+                  gameover_sound.play()
+                  gameover_played = True
+
+             # hapus kalau keluar layar
+            elif bullet.position.x < 0 or bullet.position.x > WIDTH:
+                 enemy_bullets.remove(bullet)         
+        player.health = max(0, player.health)
         # --- SCORE ANIMATION ---
         if display_score < score:
             display_score += 1
@@ -550,6 +599,10 @@ while running:
                 enemy.position.x + enemy.size[0]//2 - enemy_name.get_width()//2,
                 enemy.position.y - 30
             ))
+
+        #--- RENDER PELURU/LASER MUSUH    
+        for bullet in enemy_bullets:
+            bullet.draw(screen)
 
         for item in heal_items:
       # 🔥 gerak ke arah player (horizontal saja)
