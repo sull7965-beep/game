@@ -67,6 +67,8 @@ class GameNode:
         self.hit_timer = 0
         self.show_health = show_health
         self.stun_timer = 0
+        self.shoot_timer = 0
+        self.shoot_delay = 180  # 3 detik (60 FPS)
 
     def draw_health_bar(self, surface, parent_pos):
         abs_pos = parent_pos + self.position
@@ -507,22 +509,48 @@ while running:
                  enemy.position.x -= 2
             enemy_rect = enemy.get_rect(pygame.Vector2(0, 0))
 
-            # tembak jika dekat player
+            # jarak ke player
             distance = enemy.position.distance_to(player.position)
 
-            if distance < 400 and random.random() < 0.02:
-               direction = player.position - enemy.position
-               bullet = EnemyBullet(enemy.position.x, enemy.position.y, direction, bullet_img)
-           
-               enemy_bullets.append(bullet)
+             # update timer
+            enemy.shoot_timer -= 1
+
+            # hanya tembak kalau:
+           # 1. timer habis
+           # 2. jarak jauh
+            if enemy.shoot_timer <= 0 and distance > 200:
+
+                # reset timer (3 detik)
+                  enemy.shoot_timer = enemy.shoot_delay
+
+                # jumlah peluru (1 - 3)
+                  jumlah_peluru = random.randint(1, 3)
+
+                  for _ in range(jumlah_peluru):
+
+                      if player.position.x > enemy.position.x:
+                          direction = pygame.Vector2(1, 0)
+                      else:
+                          direction = pygame.Vector2(-1, 0)
+
+                      bullet = EnemyBullet(
+                          enemy.position.x,
+                          enemy.position.y,
+                          direction,
+                          bullet_img
+                      )
+
+                      enemy_bullets.append(bullet)
+
 
             # kena pedang
             if sword_rect.colliderect(enemy_rect):
                 enemy.health -= 25
 
-                knock = (enemy.position - player.position)
-                if knock.length() > 0:
-                    enemy.position += knock.normalize() * 50
+                if enemy.position.x > player.position.x:
+                    enemy.position.x += 50   # terpental ke kanan
+                else:
+                    enemy.position.x -= 50   # terpental ke kiri
 
                 enemy.stun_timer = 30
 
