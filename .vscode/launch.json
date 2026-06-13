@@ -1,0 +1,11 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Jalankan Portofolio di Chrome",
+            "file": "${workspaceFolder}/index.html" // Membuka langsung file HTML utama Anda
+        }
+    ]
+}
