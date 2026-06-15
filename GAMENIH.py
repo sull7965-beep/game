@@ -125,6 +125,16 @@ class GameNode:
 pygame.init()
 pygame.mixer.init()
 
+#---- controll stick-----
+pygame.joystick.init()
+
+if pygame.joystick.get_count() > 0:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    print("Controller terhubung:", joystick.get_name())
+else:
+    joystick = None
+
 pygame.mixer.music.load("sound.ogg")
 pygame.mixer.music.set_volume(0.2)   # volume 0.0 - 1.0
 
@@ -414,15 +424,43 @@ while running:
            jump_velocity = jump_power
 
        # ===== PEDANG FIX HORIZONTAL =====
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             player.position.x += move_speed
             pedang.position = pygame.Vector2(50, 15)
             pedang.angle = 0   # lurus ke kanan
 
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             player.position.x -= move_speed
             pedang.position = pygame.Vector2(-60, 15)
             pedang.angle = 180  # lurus ke kiri
+
+        # --- CONTROL STICK ---
+        if joystick:
+            axis_x = joystick.get_axis(0)  # analog kiri kanan
+
+          # gerak kanan
+            if axis_x > 0.5:
+               player.position.x += move_speed
+               pedang.position = pygame.Vector2(50, 15)
+               pedang.angle = 0
+
+          # gerak kiri
+            elif axis_x < -0.5:
+               player.position.x -= move_speed
+               pedang.position = pygame.Vector2(-60, 15)
+               pedang.angle = 180
+
+          # tombol lompat (biasanya tombol A di stik = button 0)
+            if joystick.get_button(0) and not is_jumping:
+               is_jumping = True
+               jump_velocity = jump_power
+
+            # tombol laser (misalnya tombol X = button 2)
+            if joystick.get_button(2) and laser_ready:
+               laser_active = True
+               laser_ready = False
+               laser_cooldown = laser_max_cooldown
+               laser_duration = 60
 
         
         # --- JUMP PHYSICS ---
@@ -758,4 +796,3 @@ while running:
 
 pygame.quit()
 sys.exit()
-
