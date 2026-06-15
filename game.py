@@ -19,6 +19,25 @@ def draw_shadow(surface, pos, size):
     
     surface.blit(shadow, shadow_pos)
 
+#------ PELURUH MUSUH-------
+class EnemyBullet:
+    def __init__(self, x, y, direction, image):
+        self.position = pygame.Vector2(x, y)
+        self.direction = direction.normalize()
+        self.speed = 7
+        self.image = image
+        self.size = (20, 20)
+
+    def move(self):
+        self.position += self.direction * self.speed
+
+    def get_rect(self):
+        return pygame.Rect(self.position.x, self.position.y, self.size[0], self.size[1])
+
+    def draw(self, surface):
+        surface.blit(self.image, self.position)
+
+
 # --- HEAL ITEM ------
 class HealItem:
     def __init__(self, x, y, image):
@@ -48,6 +67,8 @@ class GameNode:
         self.hit_timer = 0
         self.show_health = show_health
         self.stun_timer = 0
+        self.shoot_timer = 0
+        self.shoot_delay = 180  # 3 detik (60 FPS)
 
     def draw_health_bar(self, surface, parent_pos):
         abs_pos = parent_pos + self.position
@@ -104,6 +125,16 @@ class GameNode:
 pygame.init()
 pygame.mixer.init()
 
+#---- controll stick-----
+pygame.joystick.init()
+
+if pygame.joystick.get_count() > 0:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+    print("Controller terhubung:", joystick.get_name())
+else:
+    joystick = None
+
 pygame.mixer.music.load("sound.ogg")
 pygame.mixer.music.set_volume(0.2)   # volume 0.0 - 1.0
 
@@ -129,9 +160,23 @@ font_name = pygame.font.SysFont("Arial", 17, bold=True)
 
 game_state = "MENU"
 
-# --- 3. Pengaturan Objek ---
+# --- 3. Pengaturan ObjeK LATAR ---
 background = pygame.image.load("latar.png").convert()
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
+
+#---- MEMOTONG GAMBAR LASER -----
+def cut_sprite(sheet, width, height):
+    frames = []
+    for i in range(sheet.get_width() // width):
+        frame = sheet.subsurface((i * width, 0, width, height))
+        frames.append(frame)
+    return frames
+
+laser_sheet = pygame.image.load("laser4.png").convert_alpha()
+laser_frames = cut_sprite(laser_sheet, 400, 40)
+
+
+#----- OBJEK UTAMA PLAYER DLL------
 heal_image = pygame.image.load("heal.png").convert_alpha()
 heal_image = pygame.transform.scale(heal_image, (25, 25))
 player_down = pygame.image.load("player.png").convert_alpha()
@@ -139,9 +184,12 @@ player_up = pygame.image.load("hero_up.png").convert_alpha()
 player_left = pygame.image.load("playerleft.png").convert_alpha()
 player_right = pygame.image.load("playerright.png").convert_alpha()
 player = pygame.transform.scale(player_down, (60, 60))
-player = GameNode(400, 300, None, 60, 60, health=50, image=player_down)
+player = GameNode(400, 300, None, 60, 60, health=75, image=player_down)
 enemy_img = pygame.image.load("enemy.png").convert_alpha()
 enemy_img = pygame.transform.scale(enemy_img, (50, 50))
+bullet_img = pygame.image.load("bolamusuh.png").convert_alpha()
+bullet_img = pygame.transform.scale(bullet_img, (20, 20))
+
 
 
 # Default awal pedang berada di sebelah kanan
@@ -151,7 +199,29 @@ pedang_image = pygame.transform.scale(pedang_image, (70, 40))
 pedang = GameNode(50, 20, None, 70, 40, show_health=False, image = pedang_image)
 player.add_child(pedang)
 
+# --- LASER SYSTEM ---
+laser_ready = True
+laser_cooldown = 0
+laser_max_cooldown = 600
+
+laser_active = False
+laser_duration = 60
+
+laser_frames = [
+    pygame.image.load("laser1.png").convert_alpha(),
+    pygame.image.load("laser2.png").convert_alpha(),
+    pygame.image.load("laser3.png").convert_alpha(),
+    pygame.image.load("laser4.png").convert_alpha()
+]
+
+# resize semua
+laser_frames = [pygame.transform.scale(img, (400, 40)) for img in laser_frames]
+
+laser_frame_index = 0
+laser_anim_speed = 0.5
+
 MAX_ENEMIES = 10
+enemy_bullets = []
 enemies = [] 
 heal_items = []   
 def spawn_enemy():
@@ -334,21 +404,63 @@ while running:
         keys = pygame.key.get_pressed()
         move_speed = 5
 
+
+        # TEKAN F UNTUK LASER
+        if keys[pygame.K_f] and laser_ready:
+           laser_active = True
+           laser_ready = False
+           laser_cooldown = laser_max_cooldown
+           laser_duration = 60
+
+        # COOLDOWN LASER
+        if not laser_ready:
+           laser_cooldown -= 1
+           if laser_cooldown <= 0:
+              laser_ready = True 
+
         # --- JUMP CONTROL ---
         if keys[pygame.K_SPACE] and not is_jumping:
            is_jumping = True
            jump_velocity = jump_power
 
        # ===== PEDANG FIX HORIZONTAL =====
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             player.position.x += move_speed
             pedang.position = pygame.Vector2(50, 15)
             pedang.angle = 0   # lurus ke kanan
 
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             player.position.x -= move_speed
             pedang.position = pygame.Vector2(-60, 15)
             pedang.angle = 180  # lurus ke kiri
+
+        # --- CONTROL STICK ---
+        if joystick:
+            axis_x = joystick.get_axis(0)  # analog kiri kanan
+
+          # gerak kanan
+            if axis_x > 0.5:
+               player.position.x += move_speed
+               pedang.position = pygame.Vector2(50, 15)
+               pedang.angle = 0
+
+          # gerak kiri
+            elif axis_x < -0.5:
+               player.position.x -= move_speed
+               pedang.position = pygame.Vector2(-60, 15)
+               pedang.angle = 180
+
+          # tombol lompat (biasanya tombol A di stik = button 0)
+            if joystick.get_button(0) and not is_jumping:
+               is_jumping = True
+               jump_velocity = jump_power
+
+            # tombol laser (misalnya tombol X = button 2)
+            if joystick.get_button(2) and laser_ready:
+               laser_active = True
+               laser_ready = False
+               laser_cooldown = laser_max_cooldown
+               laser_duration = 60
 
         
         # --- JUMP PHYSICS ---
@@ -388,6 +500,38 @@ while running:
             if player_rect.colliderect(item.get_rect()):
                player.health = min(player.max_health, player.health + 20)
                heal_items.remove(item)
+        #------ LOGIKA LASER BUNUH MUSUH----
+
+        if laser_active:
+           laser_duration -= 1
+
+               # ✅ ANIMASI DI SINI
+           laser_frame_index += laser_anim_speed
+           if laser_frame_index >= len(laser_frames):
+              laser_frame_index = 0
+
+           if pedang.angle == 0:  # kanan
+                laser_rect = pygame.Rect(
+                   player.position.x + 60,
+                   player.position.y + 10,
+                    400,
+                    30
+                )
+           else:  # kiri
+                laser_rect = pygame.Rect(
+                   player.position.x - 400,
+                   player.position.y + 10,
+                    400,
+                    30
+                )
+
+           for enemy in enemies[:]:
+               if laser_rect.colliderect(enemy.get_rect(pygame.Vector2(0,0))):
+                  enemies.remove(enemy)
+                  score += 10
+
+           if laser_duration <= 0:
+              laser_active = False
 
         # --- ENEMY ---
         for enemy in enemies[:]:
@@ -403,13 +547,48 @@ while running:
                  enemy.position.x -= 2
             enemy_rect = enemy.get_rect(pygame.Vector2(0, 0))
 
+            # jarak ke player
+            distance = enemy.position.distance_to(player.position)
+
+             # update timer
+            enemy.shoot_timer -= 1
+
+            # hanya tembak kalau:
+           # 1. timer habis
+           # 2. jarak jauh
+            if enemy.shoot_timer <= 0 and distance > 200:
+
+                # reset timer (3 detik)
+                  enemy.shoot_timer = enemy.shoot_delay
+
+                # jumlah peluru (1 - 3)
+                  jumlah_peluru = random.randint(1, 3)
+
+                  for _ in range(jumlah_peluru):
+
+                      if player.position.x > enemy.position.x:
+                          direction = pygame.Vector2(1, 0)
+                      else:
+                          direction = pygame.Vector2(-1, 0)
+
+                      bullet = EnemyBullet(
+                          enemy.position.x,
+                          enemy.position.y,
+                          direction,
+                          bullet_img
+                      )
+
+                      enemy_bullets.append(bullet)
+
+
             # kena pedang
             if sword_rect.colliderect(enemy_rect):
                 enemy.health -= 25
 
-                knock = (enemy.position - player.position)
-                if knock.length() > 0:
-                    enemy.position += knock.normalize() * 50
+                if enemy.position.x > player.position.x:
+                    enemy.position.x += 50   # terpental ke kanan
+                else:
+                    enemy.position.x -= 50   # terpental ke kiri
 
                 enemy.stun_timer = 30
 
@@ -433,12 +612,43 @@ while running:
                      gameover_sound.play()
                      gameover_played = True
 
+
+        for bullet in enemy_bullets[:]:
+            bullet.move()
+
+            # kena player
+            if bullet.get_rect().colliderect(player.get_rect(pygame.Vector2(0,0))):
+               player.health -= 5
+               enemy_bullets.remove(bullet)
+
+                # ✅ TAMBAHAN WAJIB
+               if player.health <= 0 and not gameover_played:
+                  is_game_over = True
+                  gameover_sound.play()
+                  gameover_played = True
+
+             # hapus kalau keluar layar
+            elif bullet.position.x < 0 or bullet.position.x > WIDTH:
+                 enemy_bullets.remove(bullet)         
+        player.health = max(0, player.health)
         # --- SCORE ANIMATION ---
         if display_score < score:
             display_score += 1
 
         # --- RENDER ---
         player.draw(screen, pygame.Vector2(0, 0))
+
+        # GAMBAR LASER
+        if laser_active:
+           current_laser = laser_frames[int(laser_frame_index)]
+
+           if pedang.angle == 0:
+              screen.blit(current_laser, (player.position.x + 60, player.position.y + 10))
+           else:
+              flipped = pygame.transform.flip(current_laser, True, False)
+              screen.blit(flipped, (player.position.x - 400, player.position.y + 10))
+
+
         # --- NAMA PLAYER ---
         player_name = font_name.render("SULE", True, (255, 255, 255))
         screen.blit(player_name, (
@@ -455,6 +665,10 @@ while running:
                 enemy.position.x + enemy.size[0]//2 - enemy_name.get_width()//2,
                 enemy.position.y - 30
             ))
+
+        #--- RENDER PELURU/LASER MUSUH    
+        for bullet in enemy_bullets:
+            bullet.draw(screen)
 
         for item in heal_items:
       # 🔥 gerak ke arah player (horizontal saja)
@@ -473,6 +687,24 @@ while running:
         screen.blit(font_text.render(f"HP: {player.health}", True, (255,255,255)), (10, 65))
         screen.blit(font_text.render(f"POINT: {display_score}", True, (255,255,255)), (10, 90))
         screen.blit(font_text.render(f"LEVEL: {level}", True, (255,255,0)), (10, 120))
+
+        # --- LASER BAR ---
+        bar_x, bar_y = 10, 150
+        bar_width, bar_height = 200, 15
+
+        pygame.draw.rect(screen, (100,100,100), (bar_x, bar_y, bar_width, bar_height))
+
+        if laser_ready:
+           charge_ratio = 1
+        else:
+           charge_ratio = 1 - (laser_cooldown / laser_max_cooldown)
+
+        pygame.draw.rect(screen, (0, 200, 255),
+                        (bar_x, bar_y, bar_width * charge_ratio, bar_height))
+
+        screen.blit(font_text.render("LASER", True, (255,255,255)), (10, 170))
+
+
         # --- DRAW LEVEL UP TEXT ---
         if is_level_up and level_up_alpha > 0:
            text = font_title.render("LEVEL UP!", True, (255, 255, 0))
@@ -564,4 +796,3 @@ while running:
 
 pygame.quit()
 sys.exit()
-
