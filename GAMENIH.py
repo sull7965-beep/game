@@ -340,15 +340,32 @@ while running:
         tuto_title = font_title.render("CARA BERMAIN", True, (255, 255, 255))
         screen.blit(tuto_title, (WIDTH // 2 - tuto_title.get_width() // 2, 80))
         
-        lines = [
-            "1. Gunakan TOMBOL PANAH untuk bergerak (Kotak Hijau).",
-            "2. Objek biru ialah pedang.",
-            "3. Objek orange adalah musuh"
-        ]
-        
-        for i, line in enumerate(lines):
-            line_surface = font_text.render(line, True, (200, 200, 200))
-            screen.blit(line_surface, (100, 220 + (i * 40)))
+
+
+    # Gambar Player
+        player_icon = pygame.transform.scale(player_down, (70, 70))
+        screen.blit(player_icon, (120, 180))
+        screen.blit(font_text.render("Player - Bergerak dengan Panah / A-D", True, (255,255,255)), (220, 200))
+
+       # Gambar Pedang
+        sword_icon = pygame.transform.scale(pedang_image, (80, 50))
+        screen.blit(sword_icon, (120, 280))
+        screen.blit(font_text.render("Pedang - Menyerang musuh", True, (255,255,255)), (220, 295))
+
+           # Gambar Musuh
+        enemy_icon = pygame.transform.scale(enemy_img, (70, 70))
+        screen.blit(enemy_icon, (120, 380))
+        screen.blit(font_text.render("Musuh - Hindari dan kalahkan", True, (255,255,255)), (220, 400))
+
+       # Gambar Heal
+        heal_icon = pygame.transform.scale(heal_image, (50, 50))
+        screen.blit(heal_icon, (120, 480))
+        screen.blit(font_text.render("Heal - Menambah HP +20", True, (255,255,255)), (220, 490))
+
+        # Kontrol
+        screen.blit(font_text.render("SPACE = Lompat", True, (255,255,0)), (120, 580))
+        screen.blit(font_text.render("F = Laser", True, (255,255,0)), (120, 620))
+       
             
         btn_back_rect = pygame.Rect(WIDTH // 2 - 150, 450, 300, 50)
         back_color = (200, 50, 50) if btn_back_rect.collidepoint(mouse_pos) else (150, 30, 30)
