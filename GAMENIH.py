@@ -202,7 +202,7 @@ player.add_child(pedang)
 # --- LASER SYSTEM ---
 laser_ready = True
 laser_cooldown = 0
-laser_max_cooldown = 600
+laser_max_cooldown = 300
 
 laser_active = False
 laser_duration = 60
@@ -430,10 +430,10 @@ while running:
            laser_duration = 60
 
         # COOLDOWN LASER
-        if not laser_ready:
-           laser_cooldown -= 1
-           if laser_cooldown <= 0:
-              laser_ready = True 
+#        if not laser_ready:
+#           laser_cooldown -= 1
+#           if laser_cooldown <= 0:
+#              laser_ready = True 
 
         # --- JUMP CONTROL ---
         if keys[pygame.K_SPACE] and not is_jumping:
@@ -614,6 +614,15 @@ while running:
                 enemies.remove(enemy)
                 score += 10
 
+                    # 🔥 TAMBAHAN: cooldown berkurang saat kill
+                laser_cooldown -= 50  # angka bisa kamu atur
+
+                # biar tidak negatif
+                if laser_cooldown < 0:
+                   laser_cooldown = 0    
+                
+                if laser_cooldown == 0:
+                   laser_ready = True
                  # 🔥 TAMBAHKAN INI
                 if random.random() < 0.1:  # 10% chance
                  spawn_heal()
