@@ -35,5 +35,13 @@ You can run the game directly using `uv` which will handle the `pygame` dependen
 uv run --with pygame GAMENIH.py
 ```
 
+## Running Tests
+Unit tests are provided to verify the game logic (classes, movements, hitboxes) headlessly without launching the game window.
+
+You can run the tests easily using `uv` (no additional dependencies needed as `pygame` is fully mocked for tests):
+```bash
+uv run python test/test_GAMENIH.py
+```
+
 ## Assets
 Make sure all necessary assets (images like `latar.png`, `player.png`, `enemy.png`, `pedang2.png`, etc., and sound files like `sound.ogg`, `levelup.ogg`, etc.) are placed in the same directory as the script before running the game.
