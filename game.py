@@ -93,10 +93,6 @@ class GameNode:
         self.stun_timer = 0
         self.shoot_timer = 0
         self.shoot_delay = 180  # 3 detik (60 FPS)
-        self.frames = None
-        self.frame_index = 0
-        self.anim_speed = 0.2
-        self.facing_right = True
 
     def draw_health_bar(self, surface, parent_pos):
         abs_pos = parent_pos + self.position
@@ -127,37 +123,26 @@ class GameNode:
     def draw(self, surface, parent_pos):
         abs_pos = parent_pos + self.position
 
-        if self.frames:
-            self.frame_index += self.anim_speed
-            if self.frame_index >= len(self.frames):
-                self.frame_index = 0
+        if self.image:
+           obj_surface = pygame.transform.scale(self.image, self.size)
 
-            current_frame = self.frames[int(self.frame_index)]
-            obj_surface = pygame.transform.scale(current_frame, self.size)
+           # 🔥 efek kena hit
+           if self.hit_timer > 0:
+               flash = pygame.Surface(self.size, pygame.SRCALPHA)
+               flash.fill((255, 255, 255, 120))
+               obj_surface.blit(flash, (0, 0))
 
-            # 🔥 flip kalau ke kiri
-            if not self.facing_right:
-                obj_surface = pygame.transform.flip(obj_surface, True, False)
-
-        elif self.image:
-            obj_surface = pygame.transform.scale(self.image, self.size)
-        else:
-            obj_surface = pygame.Surface(self.size, pygame.SRCALPHA)
-            
-            if self.stun_timer > 0:
-                obj_surface.fill((100, 100, 255))  # biru saat stun
-            else:
-                obj_surface.fill(self.color)
-        
+        # 🔥 PINDAHKAN KE LUAR (INI PENTING)
         rotated_surface = pygame.transform.rotate(obj_surface, self.angle)
-        new_rect = rotated_surface.get_rect(center=(abs_pos.x + self.size[0]/2, abs_pos.y + self.size[1]/2))
-        
+        new_rect = rotated_surface.get_rect(
+            center=(abs_pos.x + self.size[0]/2, abs_pos.y + self.size[1]/2)
+        )
+
         surface.blit(rotated_surface, new_rect.topleft)
 
-        # TAMBAHAN: gambar health bar
         if self.show_health:
             self.draw_health_bar(surface, parent_pos)
-        
+
         for child in self.children:
             child.draw(surface, abs_pos)
 
@@ -215,26 +200,16 @@ def cut_sprite(sheet, width, height):
 laser_sheet = pygame.image.load("laser4.png").convert_alpha()
 laser_frames = cut_sprite(laser_sheet, 400, 40)
 
-# === LOAD ANIMASI DARI BANYAK GAMBAR ===
-player_walk_frames = [
-    pygame.image.load("walk.png").convert_alpha(),
-    pygame.image.load("walk2.png").convert_alpha(),
-    pygame.image.load("walk3.png").convert_alpha(),
-    pygame.image.load("walk4.png").convert_alpha()
-]
-
-# resize biar sama ukuran
-player_walk_frames = [pygame.transform.scale(img, (60, 70)) for img in player_walk_frames]
 
 #----- OBJEK UTAMA PLAYER DLL------
 heal_image = pygame.image.load("heal.png").convert_alpha()
 heal_image = pygame.transform.scale(heal_image, (25, 25))
-player_down = pygame.image.load("diam.png").convert_alpha()
-
+player_down = pygame.image.load("player.png").convert_alpha()
+player_up = pygame.image.load("hero_up.png").convert_alpha()
+player_left = pygame.image.load("playerleft.png").convert_alpha()
+player_right = pygame.image.load("playerright.png").convert_alpha()
 player = pygame.transform.scale(player_down, (60, 60))
-player = GameNode(400, 300, None, 60, 70, health=75, image=player_down)
-player.frames = player_walk_frames
-player.anim_speed = 0.2
+player = GameNode(400, 300, None, 60, 60, health=75, image=player_down)
 enemy_img = pygame.image.load("enemy.png").convert_alpha()
 enemy_img = pygame.transform.scale(enemy_img, (50, 50))
 bullet_img = pygame.image.load("bolamusuh.png").convert_alpha()
@@ -338,6 +313,8 @@ enemy_spawn_timer = 0
 enemy_spawn_delay = 120  + level * 10 # makin besar = makin lama
 gameover_played = False
 
+screen_shake = 0
+hit_particles = []
 
 # --- JUMP SYSTEM ---
 is_jumping = False
@@ -348,8 +325,17 @@ ground_y_offset = 0  # untuk efek naik turun
 
 
 
-while running: 
-    screen.blit(background, (0, 0))
+while running:
+
+    # 🔥 KURANGI SHAKE DI SINI (PALING ATAS LOOP)
+    if screen_shake > 0:
+        screen_shake -= 1
+
+
+    offset_x = random.randint(-screen_shake, screen_shake)
+    offset_y = random.randint(-screen_shake, screen_shake)
+
+    screen.blit(background, (offset_x, offset_y))
 
         # 🔥 COOLDOWN PAUSE (TARUH DI SINI)
     if pause_cooldown > 0:
@@ -373,9 +359,10 @@ while running:
                running = False
 
             #----PAUSE----
+        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_p:
                 is_paused = not is_paused
-        
+
         if event.type == pygame.JOYBUTTONDOWN: 
             if event.button == 9: 
                 is_paused = not is_paused
@@ -494,6 +481,7 @@ while running:
                 btn_menu.centery - text_menu.get_height()//2
             ))
 
+
             # === CLICK EVENT ===
             for event in events:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -559,8 +547,6 @@ while running:
                keys = pygame.key.get_pressed()
                move_speed = 5
 
-               moving = False
-
                
                # --- TEMBAK PISTOL ---
                if shoot_cooldown > 0:
@@ -604,33 +590,22 @@ while running:
                    player.position.x += move_speed
                    pedang.position = pygame.Vector2(50, 15)
                    pedang.angle = 0   # lurus ke kanan
-                   moving = True
-                   player.facing_right = True
 
                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                    player.position.x -= move_speed
                    pedang.position = pygame.Vector2(-60, 15)
                    pedang.angle = 180  # lurus ke kiri
-                   moving = True
-                   player.facing_right = False
-
-               if moving:
-                    player.frames = player_walk_frames
-               else:
-                    player.frames = None
-                    player.image = player_down
-                    player.frame_index = 0   
 
                # --- CONTROL STICK ---
                if joystick:
                    axis_x = joystick.get_axis(0)  # analog kiri kanan
 
                    if joystick:
-                      if joystick.get_button(9):  # tombol START
-                         if not pause_pressed:
+                       if joystick.get_button(9):  # tombol START
+                          if not pause_pressed:
                             is_paused = not is_paused
                             pause_pressed = True
-                      else:
+                       else:
                           pause_pressed = False
 
                      # --- TEMBAK PISTOL JOYSTICK ---
@@ -665,12 +640,12 @@ while running:
                       pedang.angle = 180
 
                  # tombol lompat (biasanya tombol A di stik = button 0)
-                   if joystick.get_button(0) and not is_jumping:
+                   if joystick.get_button(2) and not is_jumping:
                       is_jumping = True
                       jump_velocity = jump_power
 
-                   # tombol laser (misalnya tombol X = button 2)
-                   if joystick.get_button(2) and laser_ready:
+                   # tombol laser (misalnya tombol kotak = button 2)
+                   if joystick.get_button(3) and laser_ready:
                       laser_active = True
                       laser_ready = False
                       laser_cooldown = laser_max_cooldown
@@ -686,8 +661,6 @@ while running:
                      ground_y_offset = 0
                      is_jumping = False
 
-                  if not moving:
-                       player.frame_index = 0
 
                 # --- BATAS MAP ---
                player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
@@ -832,6 +805,18 @@ while running:
                            player.health -= 10
                            player.hit_timer = 30
 
+                           screen_shake = 10  # 🔥 layar goyang
+
+                           # 🔥 partikel
+                           for _ in range(5):
+                               hit_particles.append([
+                                   player.position.x,
+                                   player.position.y,
+                                   random.randint(-3,3),
+                                   random.randint(-3,3),
+                                   10
+                               ])
+
                            if player.health <= 0 and not gameover_played:
                             is_game_over = True
                             gameover_sound.play()
@@ -902,10 +887,20 @@ while running:
                        enemy.position.x + enemy.size[0]//2 - enemy_name.get_width()//2,
                        enemy.position.y - 30
                    ))
-
+              
                #--- RENDER PELURU/LASER MUSUH    
                for bullet in enemy_bullets:
                    bullet.draw(screen)
+              
+               for p in hit_particles[:]:
+                   p[0] += p[2]
+                   p[1] += p[3]
+                   p[4] -= 1
+
+                   pygame.draw.circle(screen, (255,255,0), (int(p[0]), int(p[1])), 3)
+
+                   if p[4] <= 0:
+                       hit_particles.remove(p)
 
                #---- RENDER PELURU PLAYER
                for bullet in player_bullets:

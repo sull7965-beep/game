@@ -127,23 +127,38 @@ class GameNode:
             obj_surface = pygame.transform.scale(self.image, self.size)
         else:
             obj_surface = pygame.Surface(self.size, pygame.SRCALPHA)
-            
             if self.stun_timer > 0:
-                obj_surface.fill((100, 100, 255))  # biru saat stun
+                obj_surface.fill((100, 100, 255))
             else:
                 obj_surface.fill(self.color)
-        
-        rotated_surface = pygame.transform.rotate(obj_surface, self.angle)
-        new_rect = rotated_surface.get_rect(center=(abs_pos.x + self.size[0]/2, abs_pos.y + self.size[1]/2))
-        
+
+        # ==============================
+        # KHUSUS GUN → FLIP SAJA
+        # ==============================
+        if self == gun:
+            if not facing_right:
+                obj_surface = pygame.transform.flip(obj_surface, True, False)
+
+            rotated_surface = obj_surface
+
+        else:
+            rotated_surface = pygame.transform.rotate(obj_surface, self.angle)
+
+        new_rect = rotated_surface.get_rect(
+            center=(abs_pos.x + self.size[0]/2, abs_pos.y + self.size[1]/2)
+        )
+
         surface.blit(rotated_surface, new_rect.topleft)
 
-        # TAMBAHAN: gambar health bar
         if self.show_health:
             self.draw_health_bar(surface, parent_pos)
-        
+
         for child in self.children:
-            child.draw(surface, abs_pos)
+            if child == pedang and not gun_active:
+                child.draw(surface, abs_pos)
+            elif child == gun and gun_active:
+                child.draw(surface, abs_pos)
+
 
 # --- 2. Inisialisasi Game ---
 pygame.init()
@@ -225,6 +240,18 @@ pedang_image = pygame.transform.scale(pedang_image, (70, 40))
 pedang = GameNode(50, 20, None, 70, 40, show_health=False, image = pedang_image)
 player.add_child(pedang)
 
+# --- GUN / PISTOL ---
+gun_image = pygame.image.load("pistol.png").convert_alpha()
+gun_image = pygame.transform.scale(gun_image, (60, 30))
+
+gun = GameNode(50, 20, None, 60, 30, show_health=False, image=gun_image)
+
+# tambahkan ke player
+player.add_child(gun)
+
+# default: pedang aktif, gun disembunyikan
+gun_active = False
+
 # --- LASER SYSTEM ---
 laser_ready = True
 laser_cooldown = 0
@@ -299,6 +326,8 @@ is_paused = False
 pause_pressed = False   # untuk joystick biar tidak spam
 pause_cooldown = 0
 
+switch_pressed = False
+
 score = 0
 display_score = 0  # TAMBAHAN
 level = 1
@@ -312,6 +341,7 @@ enemy_spawn_timer = 0
 enemy_spawn_delay = 120  + level * 10 # makin besar = makin lama
 gameover_played = False
 
+facing_right = True
 
 # --- JUMP SYSTEM ---
 is_jumping = False
@@ -345,9 +375,13 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                running = False
+    
+            if event.key == pygame.K_q:
+                  gun_active = not gun_active
+
 
             #----PAUSE----
-        if event.type == pygame.KEYDOWN:
+        if event.type == pygame.KEYDOWN: 
             if event.key == pygame.K_p:
                 is_paused = not is_paused
 
@@ -400,20 +434,29 @@ while running:
         screen.blit(sword_icon, (120, 280))
         screen.blit(font_text.render("PEDANG - MENYERANG MUSUH", True, (255,255,255)), (220, 295))
 
+        #Gambar pistol 
+        pistol_icon = pygame.transform.scale(gun_image, (70, 70))
+        screen.blit(pistol_icon, (120, 380))
+        screen.blit(font_text.render("PISTOL - MENEMBAK MUSUH", True, (255,255,255)), (220, 400))
+
            # Gambar Musuh
         enemy_icon = pygame.transform.scale(enemy_img, (70, 70))
-        screen.blit(enemy_icon, (120, 380))
-        screen.blit(font_text.render("Musuh - HINDARI DAN KALAHKAN", True, (255,255,255)), (220, 400))
+        screen.blit(enemy_icon, (120, 480))
+        screen.blit(font_text.render("MUSUH - HINDARI DAN KALAHKAN", True, (255,255,255)), (220, 490))
 
        # Gambar Heal
         heal_icon = pygame.transform.scale(heal_image, (50, 50))
-        screen.blit(heal_icon, (120, 480))
-        screen.blit(font_text.render("HEAL - MENAMBAHKAN HP +20", True, (255,255,255)), (220, 490))
-
+        screen.blit(heal_icon, (130, 580))
+        screen.blit(font_text.render("HEAL - MENAMBAHKAN HP +20", True, (255,255,255)), (220, 590))
+        
         # Kontrol
-        screen.blit(font_text.render("SPACE = LOMPAT ", True, (255,255,0)), (120, 580))
-        screen.blit(font_text.render("F/X PADA STIK = LASER", True, (255,255,0)), (120, 620))
-        screen.blit(font_text.render("E/R1 PADA STIK = TEMBAK", True, (255,255,0)), (120, 660))
+        screen.blit(font_text.render("A & D/ANALOG PADA STIK = BERGERAK", True, (255,255,0)), (120, 640))
+        screen.blit(font_text.render("SPACE = LOMPAT ", True, (255,255,0)), (120, 680))
+        screen.blit(font_text.render("F/X PADA STIK = LASER", True, (255,255,0)), (120, 720))
+        screen.blit(font_text.render("E/R1 PADA STIK = TEMBAK", True, (255,255,0)), (120, 760))
+        screen.blit(font_text.render("Q/O PADA STIK = GANTI SENJATA", True, (255,255,0)), (120, 800))
+
+        
        
             
         btn_back_rect = pygame.Rect(WIDTH // 2 - 150, 450, 300, 50)
@@ -539,17 +582,22 @@ while running:
                if shoot_cooldown > 0:
                    shoot_cooldown -= 1
 
-               if keys[pygame.K_e] and shoot_cooldown <= 0:
+               if keys[pygame.K_e] and shoot_cooldown <= 0 and gun_active:
                    shoot_cooldown = shoot_delay
 
-                   if pedang.angle == 0:
-                       direction = pygame.Vector2(1, 0)
-                       x = player.position.x + 60
-                   else:
-                       direction = pygame.Vector2(-1, 0)
-                       x = player.position.x - 10
+                   gun_world_x = player.position.x + gun.position.x
+                   gun_world_y = player.position.y + gun.position.y
 
-                   y = player.position.y + 20
+                   offset = 0  # bisa kamu ubah sesuai gambar
+
+                   if facing_right:
+                       x = gun_world_x + gun.size[0] + offset
+                       direction = pygame.Vector2(1, 0)
+                   else:
+                       x = gun_world_x - offset
+                       direction = pygame.Vector2(-1, 0)
+
+                   y = gun_world_y + gun.size[1] // 2.2
 
                    player_bullets.append(PlayerBullet(x, y, direction))
 
@@ -577,11 +625,16 @@ while running:
                    player.position.x += move_speed
                    pedang.position = pygame.Vector2(50, 15)
                    pedang.angle = 0   # lurus ke kanan
+                   gun.position = pygame.Vector2(50, 20)
+                   facing_right = True
 
                if keys[pygame.K_LEFT] or keys[pygame.K_a]:
                    player.position.x -= move_speed
                    pedang.position = pygame.Vector2(-60, 15)
                    pedang.angle = 180  # lurus ke kiri
+                   gun.position = pygame.Vector2(-50, 20)
+                   facing_right = False
+
 
                # --- CONTROL STICK ---
                if joystick:
@@ -600,17 +653,22 @@ while running:
                       shoot_cooldown -= 1
 
        # tombol tembak (coba button 5 atau 7 tergantung stik)
-                   if joystick.get_button(5) and shoot_cooldown <= 0:
+                   if joystick.get_button(5) and shoot_cooldown <= 0 and gun_active:
                          shoot_cooldown = shoot_delay
 
-                         if pedang.angle == 0:
+                         gun_world_x = player.position.x + gun.position.x
+                         gun_world_y = player.position.y + gun.position.y
+
+                         offset = 0  # bisa kamu ubah sesuai gambar
+
+                         if facing_right:
+                             x = gun_world_x + gun.size[0] + offset
                              direction = pygame.Vector2(1, 0)
-                             x = player.position.x + 60
                          else:
+                             x = gun_world_x - offset
                              direction = pygame.Vector2(-1, 0)
-                             x = player.position.x - 10
-        
-                         y = player.position.y + 20
+
+                         y = gun_world_y + gun.size[1] // 2.2
 
                          player_bullets.append(PlayerBullet(x, y, direction))
 
@@ -619,12 +677,24 @@ while running:
                       player.position.x += move_speed
                       pedang.position = pygame.Vector2(50, 15)
                       pedang.angle = 0
-
+                      gun.position = pygame.Vector2(50, 20)
+                      facing_right = True
                  # gerak kiri
                    elif axis_x < -0.5:
                       player.position.x -= move_speed
                       pedang.position = pygame.Vector2(-60, 15)
                       pedang.angle = 180
+                      gun.position = pygame.Vector2(-50, 20)
+                      facing_right = False
+
+                #pistollll
+                   if joystick.get_button(1):
+                        if not switch_pressed:
+                            gun_active = not gun_active
+                            switch_pressed = True
+                   else:
+                        switch_pressed = False
+                      
 
                  # tombol lompat (biasanya tombol A di stik = button 0)
                    if joystick.get_button(2) and not is_jumping:
@@ -758,7 +828,7 @@ while running:
 
 
                    # kena pedang
-                   if sword_rect.colliderect(enemy_rect):
+                   if not gun_active and sword_rect.colliderect(enemy_rect):
                        enemy.health -= 25
 
                        if enemy.position.x > player.position.x:
