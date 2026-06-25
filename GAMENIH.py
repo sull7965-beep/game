@@ -211,7 +211,7 @@ font_name = pygame.font.SysFont("Arial", 17, bold=True)
 game_state = "MENU"
 
 # --- 3. Pengaturan ObjeK LATAR ---
-background = pygame.image.load("latar.png").convert()
+background = pygame.image.load("background.png").convert()
 background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
 #---- MEMOTONG GAMBAR LASER -----
@@ -309,7 +309,7 @@ def spawn_enemy():
     enemy_img = pygame.transform.scale(enemy_img, (50, 50))
     health = random.choice([50, 75])
 
-    enemies.append(GameNode(x, y, None, 50, 50, health=health, image=enemy_img))
+    enemies.append(GameNode(x, y, None, 60, 60, health=health, image=enemy_img))
 
 for _ in range(3):
     if len(enemies) < MAX_ENEMIES:
