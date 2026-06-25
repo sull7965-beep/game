@@ -174,12 +174,23 @@ if pygame.joystick.get_count() > 0:
 else:
     joystick = None
 
-pygame.mixer.music.load("sound.ogg")
-pygame.mixer.music.set_volume(0.2)   # volume 0.0 - 1.0
+pygame.mixer.music.load("musik.mp3")
+pygame.mixer.music.set_volume(0.5)   # volume 0.0 - 1.0
 
 
 levelup_sound = pygame.mixer.Sound("levelup.ogg")
 gameover_sound = pygame.mixer.Sound("gameover.ogg")
+jump_sound = pygame.mixer.Sound("jump.ogg")
+jump_sound.set_volume(0.5)
+
+shoot_sound = pygame.mixer.Sound("piw.ogg")
+shoot_sound.set_volume(0.6)
+
+laser_sound = pygame.mixer.Sound("laser.ogg")
+laser_sound.set_volume(0.5)
+
+
+
 
 pygame.init()
 
@@ -228,6 +239,8 @@ enemy_img = pygame.image.load("enemy.png").convert_alpha()
 enemy_img = pygame.transform.scale(enemy_img, (50, 50))
 bullet_img = pygame.image.load("bolamusuh.png").convert_alpha()
 bullet_img = pygame.transform.scale(bullet_img, (20, 20))
+ground_img = pygame.image.load("ground.png").convert_alpha()
+ground_img = pygame.transform.scale(ground_img, (WIDTH, 120))
 
 #-----coldown peluru player
 shoot_cooldown = 0
@@ -354,16 +367,20 @@ ground_y_offset = 0  # untuk efek naik turun
 
 while running: 
     screen.blit(background, (0, 0))
+    screen.blit(ground_img, (0, HEIGHT // 1.2 + 60))
+
+
 
         # 🔥 COOLDOWN PAUSE (TARUH DI SINI)
     if pause_cooldown > 0:
         pause_cooldown -= 1
 
         # 🔥 OVERLAY GELAP
-    overlay = pygame.Surface((WIDTH, HEIGHT))
-    overlay.set_alpha(80)
-    overlay.fill((0, 0, 0))
-    screen.blit(overlay, (0, 0))
+    if is_paused:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(80)
+        overlay.fill((0, 0, 0))
+        screen.blit(overlay, (0, 0))
     mouse_pos = pygame.mouse.get_pos()
     
     events = pygame.event.get()
@@ -584,6 +601,7 @@ while running:
 
                if keys[pygame.K_e] and shoot_cooldown <= 0 and gun_active:
                    shoot_cooldown = shoot_delay
+                   shoot_sound.play()
 
                    gun_world_x = player.position.x + gun.position.x
                    gun_world_y = player.position.y + gun.position.y
@@ -608,6 +626,7 @@ while running:
                   laser_ready = False
                   laser_cooldown = laser_max_cooldown
                   laser_duration = 60
+                  laser_sound.play()
 
                # COOLDOWN LASER
        #        if not laser_ready:
@@ -619,6 +638,7 @@ while running:
                if keys[pygame.K_SPACE] and not is_jumping:
                   is_jumping = True
                   jump_velocity = jump_power
+                  jump_sound.play()
 
               # ===== PEDANG FIX HORIZONTAL =====
                if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
@@ -655,6 +675,7 @@ while running:
        # tombol tembak (coba button 5 atau 7 tergantung stik)
                    if joystick.get_button(5) and shoot_cooldown <= 0 and gun_active:
                          shoot_cooldown = shoot_delay
+                         shoot_sound.play()
 
                          gun_world_x = player.position.x + gun.position.x
                          gun_world_y = player.position.y + gun.position.y
@@ -692,6 +713,7 @@ while running:
                         if not switch_pressed:
                             gun_active = not gun_active
                             switch_pressed = True
+                        
                    else:
                         switch_pressed = False
                       
@@ -700,6 +722,7 @@ while running:
                    if joystick.get_button(2) and not is_jumping:
                       is_jumping = True
                       jump_velocity = jump_power
+                      jump_sound.play()
 
                    # tombol laser (misalnya tombol kotak = button 2)
                    if joystick.get_button(3) and laser_ready:
@@ -707,6 +730,7 @@ while running:
                       laser_ready = False
                       laser_cooldown = laser_max_cooldown
                       laser_duration = 60
+                      laser_sound.play()
 
                
                # --- JUMP PHYSICS ---
@@ -723,7 +747,12 @@ while running:
                player.position.x = max(0, min(player.position.x, WIDTH - player.size[0]))
 
                # 🔥 KUNCI Y (WAJIB DI BAWAH)
-               player.position.y = HEIGHT // 1.2 + ground_y_offset
+               GROUND_LEVEL = HEIGHT // 1.2
+
+               player.position = pygame.Vector2(
+                    400,
+                    HEIGHT // 1.2
+               )
 
                player_rect = player.get_rect(pygame.Vector2(0, 0))
                sword_rect = pedang.get_rect(player.position)
@@ -785,7 +814,7 @@ while running:
                        enemy.stun_timer -= 1
                    else:
                         # 🔥 KUNCI DI SINI (horizontal saja)
-                     enemy.position.y = HEIGHT // 1.2
+                     enemy.position.y = GROUND_LEVEL
 
                      if enemy.position.x < player.position.x:
                         enemy.position.x += 2
@@ -806,6 +835,7 @@ while running:
 
                        # reset timer (3 detik)
                          enemy.shoot_timer = enemy.shoot_delay
+
 
                        # jumlah peluru (1 - 3)
                          jumlah_peluru = random.randint(1, 3)
@@ -951,7 +981,7 @@ while running:
                   item.draw(screen)
 
                # UI
-               hp_ratio = player.health / player.max_health
+               hp_ratio = max(0, min(1, player.health / player.max_health))
                pygame.draw.rect(screen, (255, 0, 0), (10, 40, 200, 20))
                pygame.draw.rect(screen, (0, 255, 0), (10, 40, 200 * hp_ratio, 20))
 
@@ -1033,19 +1063,35 @@ while running:
                    
                          if btn_restart.collidepoint(mouse_pos):
                             is_game_over = False
-                            player.health = player.max_health
-                            player.position = pygame.Vector2(400, 300)
+
+                            # reset HP
+                            player.max_health = 75
+                            player.health = 75
+
+                            # reset posisi
+                            player.position = pygame.Vector2(
+                                400,
+                                HEIGHT // 1.2
+                            )
+
+                            # reset lompat
+                            is_jumping = False
+                            jump_velocity = 0
+                            ground_y_offset = 0
 
                             enemies.clear()
                             heal_items.clear()
+                            player_bullets.clear()
+                            enemy_bullets.clear()
 
                             score = 0
                             display_score = 0
                             level = 1
+
                             gameover_played = False
 
                             for _ in range(5):
-                               spawn_enemy()
+                                spawn_enemy()
 
                             pygame.mixer.music.play(-1)
 
