@@ -376,11 +376,10 @@ while running:
         pause_cooldown -= 1
 
         # 🔥 OVERLAY GELAP
-    if is_paused:
-        overlay = pygame.Surface((WIDTH, HEIGHT))
-        overlay.set_alpha(80)
-        overlay.fill((0, 0, 0))
-        screen.blit(overlay, (0, 0))
+    overlay = pygame.Surface((WIDTH, HEIGHT))
+    overlay.set_alpha(80)
+    overlay.fill((0, 0, 0))
+    screen.blit(overlay, (0, 0))
     mouse_pos = pygame.mouse.get_pos()
     
     events = pygame.event.get()
@@ -749,10 +748,7 @@ while running:
                # 🔥 KUNCI Y (WAJIB DI BAWAH)
                GROUND_LEVEL = HEIGHT // 1.2
 
-               player.position = pygame.Vector2(
-                    400,
-                    HEIGHT // 1.2
-               )
+               player.position.y = GROUND_LEVEL + ground_y_offset
 
                player_rect = player.get_rect(pygame.Vector2(0, 0))
                sword_rect = pedang.get_rect(player.position)
@@ -981,7 +977,7 @@ while running:
                   item.draw(screen)
 
                # UI
-               hp_ratio = max(0, min(1, player.health / player.max_health))
+               hp_ratio = player.health / player.max_health
                pygame.draw.rect(screen, (255, 0, 0), (10, 40, 200, 20))
                pygame.draw.rect(screen, (0, 255, 0), (10, 40, 200 * hp_ratio, 20))
 
