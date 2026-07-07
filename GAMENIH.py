@@ -201,9 +201,22 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN | pygame.SCA
 pygame.display.set_caption("SQUARE SURVIVOR")
 clock = pygame.time.Clock()
 
-font_title = pygame.font.SysFont("Arial", 60, bold=True)
-font_menu = pygame.font.SysFont("Arial", 36, bold=True)
-font_text = pygame.font.SysFont("Arial", 24)
+font_title = pygame.font.SysFont(
+    "Arial",
+    HEIGHT // 18,
+    bold=True
+)
+
+font_menu = pygame.font.SysFont(
+    "Arial",
+    HEIGHT // 30,
+    bold=True
+)
+
+font_text = pygame.font.SysFont(
+    "Arial",
+    HEIGHT // 45
+)
 font_gameover = pygame.font.SysFont("Arial", 72, bold=True)
 font_name = pygame.font.SysFont("Arial", 17, bold=True)
 
@@ -234,7 +247,17 @@ player_up = pygame.image.load("hero_up.png").convert_alpha()
 player_left = pygame.image.load("playerleft.png").convert_alpha()
 player_right = pygame.image.load("playerright.png").convert_alpha()
 player = pygame.transform.scale(player_down, (60, 60))
-player = GameNode(400, 300, None, 60, 60, health=75, image=player_down)
+GROUND_LEVEL = HEIGHT // 1.2
+
+player = GameNode(
+    WIDTH // 2,
+    GROUND_LEVEL,
+    None,
+    60,
+    60,
+    health=75,
+    image=player_down
+)
 enemy_img = pygame.image.load("enemy.png").convert_alpha()
 enemy_img = pygame.transform.scale(enemy_img, (50, 50))
 bullet_img = pygame.image.load("bolamusuh.png").convert_alpha()
@@ -298,7 +321,7 @@ def spawn_enemy():
 
     side = random.choice(['left', 'right'])
 
-    y = HEIGHT // 2
+    y = GROUND_LEVEL
 
     if side == 'left':
         x = -50
@@ -435,6 +458,12 @@ while running:
 
     # ==================== STATUS 2: HALAMAN TUTORIAL ====================
     elif game_state == "TUTORIAL":
+        margin_x = WIDTH // 12
+        icon_x = margin_x
+        text_x = icon_x + 100
+
+        start_y = HEIGHT // 5
+        spacing = HEIGHT // 10
         tuto_title = font_title.render("CARA BERMAIN", True, (255, 255, 255))
         screen.blit(tuto_title, (WIDTH // 2 - tuto_title.get_width() // 2, 80))
         
@@ -442,40 +471,90 @@ while running:
 
     # Gambar Player
         player_icon = pygame.transform.scale(player_down, (70, 70))
-        screen.blit(player_icon, (120, 180))
-        screen.blit(font_text.render("PLAYER - BERGERAK DENGAN PANAH / A-D / ANALOG PADA STIK", True, (255,255,255)), (220, 200))
+        screen.blit(player_icon, (icon_x, start_y))
+
+        screen.blit(
+            font_text.render(
+                "PLAYER - BERGERAK DENGAN PANAH / A-D / ANALOG STIK",
+                True,
+                (255,255,255)
+            ),
+            (text_x, start_y + 20)
+        )
 
        # Gambar Pedang
         sword_icon = pygame.transform.scale(pedang_image, (80, 50))
-        screen.blit(sword_icon, (120, 280))
-        screen.blit(font_text.render("PEDANG - MENYERANG MUSUH", True, (255,255,255)), (220, 295))
+        screen.blit(sword_icon, (icon_x, start_y + spacing))
 
+        screen.blit(
+            font_text.render(
+                "PEDANG - MENYERANG MUSUH",
+                True,
+                (255,255,255)
+            ),
+            (text_x, start_y + spacing + 15)
+        )
         #Gambar pistol 
         pistol_icon = pygame.transform.scale(gun_image, (70, 70))
-        screen.blit(pistol_icon, (120, 380))
-        screen.blit(font_text.render("PISTOL - MENEMBAK MUSUH", True, (255,255,255)), (220, 400))
+        screen.blit(pistol_icon, (icon_x, start_y + spacing*2))
+
+        screen.blit(
+            font_text.render(
+                "PISTOL - MENEMBAK MUSUH",
+                True,
+                (255,255,255)
+            ),
+            (text_x, start_y + spacing*2 + 15)
+        )
 
            # Gambar Musuh
         enemy_icon = pygame.transform.scale(enemy_img, (70, 70))
-        screen.blit(enemy_icon, (120, 480))
-        screen.blit(font_text.render("MUSUH - HINDARI DAN KALAHKAN", True, (255,255,255)), (220, 490))
+        screen.blit(enemy_icon, (icon_x, start_y + spacing*3))
+
+        screen.blit(
+            font_text.render(
+                "MUSUH - HINDARI DAN KALAHKAN",
+                True,
+                (255,255,255)
+            ),
+            (text_x, start_y + spacing*3 + 15)
+        )
 
        # Gambar Heal
         heal_icon = pygame.transform.scale(heal_image, (50, 50))
-        screen.blit(heal_icon, (130, 580))
-        screen.blit(font_text.render("HEAL - MENAMBAHKAN HP +20", True, (255,255,255)), (220, 590))
-        
+        screen.blit(heal_icon, (icon_x + 10, start_y + spacing*4))
+
+        screen.blit(
+            font_text.render(
+                "HEAL - MENAMBAHKAN HP +20",
+                True,
+                (255,255,255)
+            ),
+            (text_x, start_y + spacing*4 + 10)
+        )
+                
         # Kontrol
-        screen.blit(font_text.render("A & D/ANALOG PADA STIK = BERGERAK", True, (255,255,0)), (120, 640))
-        screen.blit(font_text.render("SPACE = LOMPAT ", True, (255,255,0)), (120, 680))
-        screen.blit(font_text.render("F/X PADA STIK = LASER", True, (255,255,0)), (120, 720))
-        screen.blit(font_text.render("E/R1 PADA STIK = TEMBAK", True, (255,255,0)), (120, 760))
-        screen.blit(font_text.render("Q/O PADA STIK = GANTI SENJATA", True, (255,255,0)), (120, 800))
+        control_y = start_y + spacing*5
+
+        screen.blit(font_text.render("A / D atau Analog = Bergerak", True, (255,255,0)), (icon_x, control_y))
+
+        screen.blit(font_text.render("SPACE = Lompat", True, (255,255,0)), (icon_x, control_y + 40))
+
+        screen.blit(font_text.render("F = Laser", True, (255,255,0)), (icon_x, control_y + 80))
+
+        screen.blit(font_text.render("E = Tembak", True, (255,255,0)), (icon_x, control_y + 120))
+
+        screen.blit(font_text.render("Q = Ganti Senjata", True, (255,255,0)), (icon_x, control_y + 160))
 
         
        
             
-        btn_back_rect = pygame.Rect(WIDTH // 2 - 150, 450, 300, 50)
+        btn_back_rect = pygame.Rect(
+            WIDTH//2 - 150,
+            HEIGHT - 100,
+            300,
+            50
+        )
         back_color = (200, 50, 50) if btn_back_rect.collidepoint(mouse_pos) else (150, 30, 30)
         pygame.draw.rect(screen, back_color, btn_back_rect, border_radius=10)
         
