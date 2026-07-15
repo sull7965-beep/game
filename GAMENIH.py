@@ -19,6 +19,25 @@ def draw_shadow(surface, pos, size):
     
     surface.blit(shadow, shadow_pos)
 
+# ---------- DAMAGE TEXT ----------
+class DamageText:
+    def __init__(self, x, y, text, color=(255, 50, 50)):
+        self.position = pygame.Vector2(x, y)
+        self.text = str(text)
+        self.color = color
+        self.life = 60          # 60 frame = 1 detik
+        self.alpha = 255
+
+    def update(self):
+        self.position.y -= 1    # naik ke atas
+        self.life -= 1
+        self.alpha = max(0, int(self.life * 255 / 60))
+
+    def draw(self, surface):
+        txt = font_text.render(self.text, True, self.color)
+        txt.set_alpha(self.alpha)
+        surface.blit(txt, self.position)
+
 #------ PELURUH MUSUH-------
 class EnemyBullet:
     def __init__(self, x, y, direction, image):
@@ -363,6 +382,9 @@ pause_pressed = False   # untuk joystick biar tidak spam
 pause_cooldown = 0
 
 switch_pressed = False
+
+#damage teks
+damage_texts = []
 
 score = 0
 display_score = 0  # TAMBAHAN
@@ -877,6 +899,15 @@ while running:
 
                   for enemy in enemies[:]:
                       if laser_rect.colliderect(enemy.get_rect(pygame.Vector2(0,0))):
+                         damage_texts.append(
+                             DamageText(
+                                 enemy.position.x,
+                                 enemy.position.y - 20,
+                                 "999",
+                                 (0,255,255)
+                             )
+                         )
+
                          enemies.remove(enemy)
                          score += 10
 
@@ -934,7 +965,17 @@ while running:
 
                    # kena pedang
                    if not gun_active and sword_rect.colliderect(enemy_rect):
-                       enemy.health -= 25
+                       damage = 25
+                       enemy.health -= damage
+
+                       damage_texts.append(
+                           DamageText(
+                               enemy.position.x,
+                               enemy.position.y - 20,
+                               f"-{damage}",
+                               (255,0,0)
+                           )
+                       )
 
                        if enemy.position.x > player.position.x:
                            enemy.position.x += 50   # terpental ke kanan
@@ -976,7 +1017,17 @@ while running:
 
                    for enemy in enemies[:]:
                        if bullet.get_rect().colliderect(enemy.get_rect(pygame.Vector2(0,0))):
-                          enemy.health -= 20
+                          damage = 20
+                          enemy.health -= damage
+
+                          damage_texts.append(
+                              DamageText(
+                                  enemy.position.x,
+                                  enemy.position.y - 20,
+                                  f"-{damage}",
+                                  (255,255,0)
+                              )
+                          )
                           if bullet in player_bullets:
                               player_bullets.remove(bullet)
                               continue
@@ -1003,6 +1054,13 @@ while running:
                    elif bullet.position.x < 0 or bullet.position.x > WIDTH:
                         enemy_bullets.remove(bullet)         
                player.health = max(0, player.health)
+
+               # ---------- UPDATE DAMAGE TEXT ----------
+               for text in damage_texts[:]:
+                   text.update()
+
+                   if text.life <= 0:
+                       damage_texts.remove(text)
                # --- SCORE ANIMATION ---
                if display_score < score:
                    display_score += 1
@@ -1030,6 +1088,9 @@ while running:
 
                for enemy in enemies:
                    enemy.draw(screen, pygame.Vector2(0, 0))
+
+               for text in damage_texts:
+                   text.draw(screen)
 
                     # --- NAMA MUSUH ---
                    enemy_name = font_name.render("HUGO", True, (255, 100, 100))
